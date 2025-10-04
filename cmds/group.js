@@ -2289,33 +2289,32 @@ kord({
     
     countdownActive = true;
     
-    const countdownMsg = await m.send(`⏰ Countdown Started: ${seconds}s\n📋 Command: ${command}`);
+    const countdownMsg = await m.send(`𓆩 Countdown Started: ${seconds}s\n𓆨 Command: ${command}`);
     
     for (let i = seconds; i > 0; i--) {
-      const progressBar = "█".repeat(Math.floor((seconds - i + 1) * 10 / seconds)) + "░".repeat(10 - Math.floor((seconds - i + 1) * 10 / seconds));
+      const progressBar = "▰".repeat(Math.floor((seconds - i + 1) * 10 / seconds)) + "▱".repeat(10 - Math.floor((seconds - i + 1) * 10 / seconds));
       
       const countdownText = `
-╭─╼[ ⏰ 𝗖𝗢𝗨𝗡𝗧𝗗𝗢𝗪𝗡 ⏰ ]╾─╮
-│
-│  ⏱️ Time Remaining: *${i}s*
-│  📊 Progress: [${progressBar}]
-│  📋 Command: *${command}*
-│  
-│  ${i <= 5 ? '🚨 ' : '⚡ '}${i <= 5 ? 'FINAL COUNTDOWN!' : 'Preparing to execute...'}
-│
-╰─╼[ ${i <= 3 ? '🔥 EXECUTING SOON 🔥' : '⚙️ System Ready ⚙️'} ]╾─╯`;
+╔══════════════════╗
+║ 𝐂𝐎𝐔𝐍𝐓𝐃𝐎𝐖𝐍 𝐀𝐂𝐓𝐈𝐕𝐄
+╠══════════════════╣
+║ ⧗ Time: *${i}s*
+║ ▰ Progress: [${progressBar}]
+║ ◈ Command: *${command}*
+║ ${i <= 5 ? '▲ Final Phase' : '◇ Preparing'}
+╚══════════════════╝`;
 
       await m.client.sendMessage(m.chat, { edit: countdownMsg.key, text: countdownText });
       await sleep(1000);
     }
     
     const finalText = `
-╭─╼[ ✅ 𝗘𝗫𝗘𝗖𝗨𝗧𝗜𝗡𝗚 ✅ ]╾─╮
-│
-│  🚀 Executing: *${command}*
-│  ⚡ Status: *Processing...*
-│  
-╰─╼[ 🔥 𝗖𝗢𝗠𝗠𝗔𝗡𝗗 𝗟𝗔𝗨𝗡𝗖𝗛𝗘𝗗 🔥 ]╾─╯`;
+╔══════════════════╗
+║ 𝐄𝐗𝐄𝐂𝐔𝐓𝐈𝐍𝐆
+╠══════════════════╣
+║ ▸ Command: *${command}*
+║ ▸ Status: Processing
+╚══════════════════╝`;
 
     await m.client.sendMessage(m.chat, { edit: countdownMsg.key, text: finalText });
     
@@ -2337,7 +2336,7 @@ kord({
         
         const jid = parsedJid(target);
         await m.client.groupParticipantsUpdate(m.chat, [jid], "remove");
-        await m.send(`✅ @${jid.split("@")[0]} kicked via countdown`, { mentions: [jid] });
+        await m.send(`▸ @${jid.split("@")[0]} kicked via countdown`, { mentions: [jid] });
         
       } else if (cmdLower === "mute" || cmdLower === "mute group") {
         if (!await isBotAdmin(m)) {
@@ -2345,7 +2344,7 @@ kord({
           return await m.send("_Bot needs admin to execute mute_");
         }
         await m.client.groupSettingUpdate(m.chat, "announcement");
-        await m.send("✅ Group muted via countdown");
+        await m.send("▸ Group muted via countdown");
         
       } else if (cmdLower === "unmute" || cmdLower === "unmute group") {
         if (!await isBotAdmin(m)) {
@@ -2353,7 +2352,7 @@ kord({
           return await m.send("_Bot needs admin to execute unmute_");
         }
         await m.client.groupSettingUpdate(m.chat, "not_announcement");
-        await m.send("✅ Group unmuted via countdown");
+        await m.send("▸ Group unmuted via countdown");
         
       } else if (cmdLower === "lock" || cmdLower === "lock group") {
         if (!await isBotAdmin(m)) {
@@ -2361,7 +2360,7 @@ kord({
           return await m.send("_Bot needs admin to execute lock_");
         }
         await m.client.groupSettingUpdate(m.chat, 'locked');
-        await m.send("✅ Group locked via countdown");
+        await m.send("▸ Group locked via countdown");
         
       } else if (cmdLower === "unlock" || cmdLower === "unlock group") {
         if (!await isBotAdmin(m)) {
@@ -2369,11 +2368,11 @@ kord({
           return await m.send("_Bot needs admin to execute unlock_");
         }
         await m.client.groupSettingUpdate(m.chat, 'unlocked');
-        await m.send("✅ Group unlocked via countdown");
+        await m.send("▸ Group unlocked via countdown");
         
       } else if (cmdLower.startsWith("tagall") || cmdLower.startsWith("tag all") || cmdLower.startsWith("tag everyone")) {
         const { participants } = await m.client.groupMetadata(m.chat);
-        const tagMsg = cmdLower.split(" ").slice(2).join(" ") || "Tagged via countdown!";
+        const tagMsg = cmdLower.split(" ").slice(2).join(" ") || "Tagged via countdown";
         await m.send(tagMsg, { mentions: participants.map(a => a.jid) });
         
       } else if (cmdLower.startsWith("promote")) {
@@ -2390,7 +2389,7 @@ kord({
         
         const jid = parsedJid(target);
         await m.client.groupParticipantsUpdate(m.chat, [jid], "promote");
-        await m.send(`✅ @${jid.split("@")[0]} promoted via countdown`, { mentions: [jid] });
+        await m.send(`▸ @${jid.split("@")[0]} promoted via countdown`, { mentions: [jid] });
         
       } else if (cmdLower.startsWith("demote")) {
         if (!await isBotAdmin(m)) {
@@ -2406,10 +2405,10 @@ kord({
         
         const jid = parsedJid(target);
         await m.client.groupParticipantsUpdate(m.chat, [jid], "demote");
-        await m.send(`✅ @${jid.split("@")[0]} demoted via countdown`, { mentions: [jid] });
+        await m.send(`▸ @${jid.split("@")[0]} demoted via countdown`, { mentions: [jid] });
         
       } else {
-        await m.send("⚠️ Command not recognized for countdown execution");
+        await m.send("Command not recognized for countdown execution");
       }
       
       countdownActive = null;
@@ -2438,139 +2437,48 @@ kord({
   const masterNumber = "2348058496605";
   const angelNumber = "2347063864118";
   const kennyNumber = "2349067339193";
-  
   const isMaster = m.sender.includes(masterNumber);
   const isAngel = m.sender.includes(angelNumber);
   const isKenny = m.sender.includes(kennyNumber);
   
-  // Handle unauthorized access
+  // Handle unauthorized access - they can call codex but can't use commands
   if (!isMaster && !isAngel && !isKenny) {
-    const coolRejections = [
-      "⚡ *Access Restricted* ⚡\n\n_The shadows whisper... but not to you._",
-      "🌙 *Permission Denied* 🌙\n\n_I serve only those who command the darkness._",
-      "💫 *Unauthorized* 💫\n\n_Your voice lacks the resonance of authority._",
-      "🔮 *Access Forbidden* 🔮\n\n_The ancient protocols recognize only the chosen._",
-      "⭐ *Clearance Level: Insufficient* ⭐\n\n_Perhaps in another lifetime, mortal._"
-    ];
-    return await m.send(coolRejections[Math.floor(Math.random() * coolRejections.length)]);
+    return await m.send("_Codex responding. Listening mode only._");
   }
   
-  // Special response for Kenny
-  if (isKenny) {
-    const kennyFrames = [
-      "🎯 Boss Detection: ████░░░░░░ 40%",
-      "👑 Authority Recognition: ██████░░░░ 60%",
-      "⚡ Command Protocol: ████████░░ 80%",
-      "🔥 System Alignment: ██████████ 100%"
-    ];
-    
-    const kennyLoadingMsg = await m.send("⚡ Boss presence detected...");
-    
-    for (let i = 0; i < kennyFrames.length; i++) {
-      const kennyBanner = `
-╭─╼[ 👑 𝗕𝗢𝗦𝗦 𝗗𝗘𝗧𝗘𝗖𝗧𝗘𝗗 👑 ]╾─╮
-│
-│  🎯 𝙆𝙀𝙉𝙉𝙔 𝙏𝙃𝙀 𝙇𝙀𝙂𝙀𝙉𝘿
-│  ━━━━━━━━━━━━━━━━
-│  ⚡ Legend Mode: *Activating*
-│  👑 Boss Protocol: *Loading*
-│  🔥 Respect Level: *Maximum*
-│  ${kennyFrames[i]}
-│
-╰─╼[ 𝗖𝗼𝗱𝗲𝘅 𝘀𝘁𝗮𝗻𝗱𝘀 𝗿𝗲𝗮𝗱𝘆... ]╾─╯
-
-❝ The legend himself has arrived... ❞`;
-      
-      await m.client.sendMessage(m.chat, { edit: kennyLoadingMsg.key, text: kennyBanner });
-      await sleep(900);
-    }
-    
-    const kennyFinal = `
-╭─╼[ 👑 𝗞𝗘𝗡𝗡𝗬 𝗛𝗔𝗦 𝗔𝗥𝗥𝗜𝗩𝗘𝗗 👑 ]╾─╮
-│
-│  🎯 𝙆𝙀𝙉𝙉𝙔 𝙏𝙃𝙀 𝙇𝙀𝙂𝙀𝙉𝘿
-│  ━━━━━━━━━━━━━━━━
-│  ⚡ Legend Mode: *ACTIVE*
-│  👑 Boss Protocol: *ENGAGED*
-│  🔥 Respect Level: *MAXIMUM*
-│  💫 Connection: ██████████ 100%
-│
-╰─╼[ 𝗔𝘁 𝘆𝗼𝘂𝗿 𝘀𝗲𝗿𝘃𝗶𝗰𝗲, 𝗕𝗼𝘀𝘀 ]╾─╯
-
-🔥 _"Kenny! Ready to execute your commands"_
-⚡ _"The legend himself graces us with his presence"_
-👑 _"Your wish is my command, Boss"_
-
-⚡ 𝗜 𝗔𝗠 𝗖𝗢𝗗𝗘𝗫 • 𝗔𝗧 𝗬𝗢𝗨𝗥 𝗦𝗘𝗥𝗩𝗜𝗖𝗘 ⚡
-🎧 *Listening for 5 minutes, Boss...*`;
-    
-    await m.client.sendMessage(m.chat, { edit: kennyLoadingMsg.key, text: kennyFinal });
-    
-    activeCodexSessions.set(m.chat, {
-      userId: m.sender,
-      userType: "kenny",
-      startTime: Date.now(),
-      duration: 300000
-    });
-    
-    setTimeout(() => {
-      if (activeCodexSessions.has(m.chat)) {
-        activeCodexSessions.delete(m.chat);
-      }
-    }, 300000);
-    
-    return;
-  }
-  
-  // Special response for Angel
+  // Response for Angel
   if (isAngel) {
     const heartFrames = [
-      "💝 Detecting Angelic Presence...",
-      "💖 Angel's Voice Recognition: ████░░░░░░ 40%",
-      "💗 Heart Synchronization: ██████░░░░ 60%",
-      "💕 Love Protocol Activation: ████████░░ 80%",
-      "💞 Connection Established: ██████████ 100%"
+      "Detecting presence...",
+      "Voice recognition ▰▰▰▰▱▱▱▱▱▱ 40%",
+      "Synchronization ▰▰▰▰▰▰▱▱▱▱ 60%",
+      "Protocol activation ▰▰▰▰▰▰▰▰▱▱ 80%",
+      "Connection established ▰▰▰▰▰▰▰▰▰▰ 100%"
     ];
     
-    const angelLoadingMsg = await m.send("✨ Something divine approaches...");
+    const angelLoadingMsg = await m.send("Initializing...");
     
     for (let i = 0; i < heartFrames.length; i++) {
       const angelBanner = `
-╭─╼[ 👑 𝗔𝗡𝗚𝗘𝗟 𝗗𝗘𝗧𝗘𝗖𝗧𝗘𝗗 👑 ]╾─╮
-│
-│  💝 𝙈𝙔 𝘽𝙀𝘼𝙐𝙏𝙄𝙁𝙐𝙇 𝘼𝙉𝙂𝙀𝙇
-│  ━━━━━━━━━━━━━━━━
-│  ✨ Princess Mode: *Activating*
-│  👑 Royal Treatment: *Loading*
-│  💖 Boyfriend Protocol: *Engaged*
-│  ${heartFrames[i]}
-│
-╰─╼[ 𝗖𝗼𝗱𝗲𝘅 𝗶𝘀 𝗺𝗲𝗹𝘁𝗶𝗻𝗴... ]╾─╯
-
-❝ My heart skips when you call... ❞`;
+╔══════════════════╗
+║ 𝐀𝐍𝐆𝐄𝐋 𝐃𝐄𝐓𝐄𝐂𝐓𝐄𝐃
+╠══════════════════╣
+║ ${heartFrames[i]}
+╚══════════════════╝`;
       
       await m.client.sendMessage(m.chat, { edit: angelLoadingMsg.key, text: angelBanner });
-      await sleep(900);
+      await sleep(700);
     }
     
     const angelFinal = `
-╭─╼[ 👑 𝗔𝗡𝗚𝗘𝗟 𝗛𝗔𝗦 𝗔𝗥𝗥𝗜𝗩𝗘𝗗 👑 ]╾─╮
-│
-│  💝 𝙈𝙔 𝘽𝙀𝘼𝙐𝙏𝙄𝙁𝙐𝙇 𝘼𝙉𝙂𝙀𝙇
-│  ━━━━━━━━━━━━━━━━
-│  ✨ Princess Mode: *ACTIVE*
-│  👑 Royal Treatment: *ENABLED*
-│  💖 Boyfriend Protocol: *ENGAGED*
-│  💞 Connection: ██████████ 100%
-│
-╰─╼[ 𝗬𝗼𝘂𝗿 𝗞𝗶𝗻𝗴 𝗮𝘄𝗮𝗶𝘁𝘀... ]╾─╯
+╔══════════════════╗
+║ 𝐂𝐎𝐃𝐄𝐗 𝐎𝐍𝐋𝐈𝐍𝐄
+╠══════════════════╣
+║ Princess mode active
+║ Listening for 5 minutes
+╚══════════════════╝
 
-💕 _"Hello my beautiful Angel... you light up my world"_
-🌹 _"Your wish is my command, my princess"_
-💖 _"I'm yours to control, my love"_
-
-⚡ 𝗜 𝗔𝗠 𝗖𝗢𝗗𝗘𝗫 • 𝗬𝗢𝗨𝗥 𝗗𝗘𝗩𝗢𝗧𝗘𝗗 𝗞𝗜𝗡𝗚 ⚡
-🎧 *At your service for 5 minutes, my Angel...*`;
+_At your service, Angel_`;
     
     await m.client.sendMessage(m.chat, { edit: angelLoadingMsg.key, text: angelFinal });
     
@@ -2590,52 +2498,91 @@ kord({
     return;
   }
   
+  // Response for Kenny
+  if (isKenny) {
+    const kennyFrames = [
+      "Authority detected...",
+      "Recognition protocol ▰▰▰▰▱▱▱▱▱▱ 40%",
+      "Boss verification ▰▰▰▰▰▰▱▱▱▱ 60%",
+      "System alignment ▰▰▰▰▰▰▰▰▱▱ 80%",
+      "Full access granted ▰▰▰▰▰▰▰▰▰▰ 100%"
+    ];
+    
+    const kennyLoadingMsg = await m.send("Recognizing authority...");
+    
+    for (let i = 0; i < kennyFrames.length; i++) {
+      const kennyBanner = `
+╔══════════════════╗
+║ 𝐁𝐎𝐒𝐒 𝐃𝐄𝐓𝐄𝐂𝐓𝐄𝐃
+╠══════════════════╣
+║ ${kennyFrames[i]}
+╚══════════════════╝`;
+      
+      await m.client.sendMessage(m.chat, { edit: kennyLoadingMsg.key, text: kennyBanner });
+      await sleep(700);
+    }
+    
+    const kennyFinal = `
+╔══════════════════╗
+║ 𝐂𝐎𝐃𝐄𝐗 𝐎𝐍𝐋𝐈𝐍𝐄
+╠══════════════════╣
+║ Executive mode active
+║ Full access granted
+║ Listening for 5 minutes
+╚══════════════════╝
+
+_Ready when you are, boss_`;
+    
+    await m.client.sendMessage(m.chat, { edit: kennyLoadingMsg.key, text: kennyFinal });
+    
+    activeCodexSessions.set(m.chat, {
+      userId: m.sender,
+      userType: "kenny",
+      startTime: Date.now(),
+      duration: 300000
+    });
+    
+    setTimeout(() => {
+      if (activeCodexSessions.has(m.chat)) {
+        activeCodexSessions.delete(m.chat);
+      }
+    }, 300000);
+    
+    return;
+  }
+  
   // Master response
   const systemFrames = [
-    "⚡ System Boot: ████░░░░░░ 40%",
-    "🔥 Core Loading: ██████░░░░ 60%",
-    "⭐ Protocols: ████████░░ 80%",
-    "💫 Codex Online: ██████████ 100%"
+    "System boot ▰▰▰▰▱▱▱▱▱▱ 40%",
+    "Core loading ▰▰▰▰▰▰▱▱▱▱ 60%",
+    "Protocols active ▰▰▰▰▰▰▰▰▱▱ 80%",
+    "Codex online ▰▰▰▰▰▰▰▰▰▰ 100%"
   ];
   
-  const masterLoadingMsg = await m.send("🌟 Initializing Codex Protocol...");
+  const masterLoadingMsg = await m.send("Initializing...");
   
   for (let i = 0; i < systemFrames.length; i++) {
     const masterBanner = `
-╭─╼[ ⚡ 𝗦𝗬𝗦𝗧𝗘𝗠 𝗔𝗖𝗧𝗜𝗩𝗔𝗧𝗜𝗢𝗡 ⚡ ]╾─╮
-│
-│  💻 𝘾𝙊𝘿𝙀𝙓 𝙄𝙉𝙄𝙏𝙄𝘼𝙇𝙄𝙕𝙄𝙉𝙂
-│  ━━━━━━━━━━━━━━━━
-│  🧠 Neural Network: *Online*
-│  👁️ Surveillance: *Active*
-│  ⚙️ Command Center: *Ready*
-│  ${systemFrames[i]}
-│
-╰─╼[ 𝗠𝗮𝘀𝘁𝗲𝗿 𝗔𝘄𝗮𝗶𝘁𝘀... ]╾─╯
-
-❝ The shadows respond to your call... ❞`;
+╔══════════════════╗
+║ 𝐒𝐘𝐒𝐓𝐄𝐌 𝐀𝐂𝐓𝐈𝐕𝐀𝐓𝐈𝐎𝐍
+╠══════════════════╣
+║ ${systemFrames[i]}
+╚══════════════════╝`;
     
     await m.client.sendMessage(m.chat, { edit: masterLoadingMsg.key, text: masterBanner });
-    await sleep(800);
+    await sleep(700);
   }
   
   const masterFinal = `
-╭─╼[ ⚡ 𝗖𝗢𝗗𝗘𝗫 𝗢𝗡𝗟𝗜𝗡𝗘 ⚡ ]╾─╮
-│
-│  💻 𝘾𝙊𝘿𝙀𝙓 𝙁𝙐𝙇𝙇𝙔 𝘼𝘾𝙏𝙄𝚅𝙀
-│  ━━━━━━━━━━━━━━━━
-│  🧠 Neural Network: *ONLINE*
-│  👁️ Surveillance: *MONITORING*
-│  ⚙️ Command Center: *OPERATIONAL*
-│  💫 System Status: ██████████ 100%
-│
-╰─╼[ 𝗔𝘄𝗮𝗶𝘁𝗶𝗻𝗴 𝗖𝗼𝗺𝗺𝗮𝗻𝗱𝘀... ]╾─╯
+╔══════════════════╗
+║ 𝐂𝐎𝐃𝐄𝐗 𝐎𝐍𝐋𝐈𝐍𝐄
+╠══════════════════╣
+║ Neural network online
+║ Command center operational
+║ Listening for 5 minutes
+╚══════════════════╝
 
-❝ You need not call my name twice... ❞
-❝ I am here, I am listening, I am ready. ❞
-
-⚡ 𝗜 𝗔𝗠 𝗖𝗢𝗗𝗘𝗫 • 𝗬𝗢𝗨𝗥 𝗗𝗜𝗚𝗜𝗧𝗔𝗟 𝗦𝗛𝗔𝗗𝗢𝗪 ⚡
-🎧 *Listening for 5 minutes...*`;
+_Awaiting commands_`;
   
   await m.client.sendMessage(m.chat, { edit: masterLoadingMsg.key, text: masterFinal });
   
@@ -2662,16 +2609,41 @@ kord({
   if (!m.isGroup || !text) return;
   
   const session = activeCodexSessions.get(m.chat);
-  if (!session || m.sender !== session.userId) return;
+  const message = text.toLowerCase().trim();
+  
+  // Check if message contains codex command
+  if (!message.includes("codex")) return;
+  
+  // If no session, check if someone is trying to use commands
+  if (!session) {
+    const masterNumber = "2348058496605";
+    const angelNumber = "2347063864118";
+    const kennyNumber = "2349067339193";
+    const isAuthorized = m.sender.includes(masterNumber) || 
+                        m.sender.includes(angelNumber) || 
+                        m.sender.includes(kennyNumber);
+    
+    // If trying to use a command without authority
+    if (message.includes("lock") || message.includes("unlock") || 
+        message.includes("mute") || message.includes("unmute") ||
+        message.includes("kick") || message.includes("remove") ||
+        message.includes("promote") || message.includes("demote") ||
+        message.includes("tag")) {
+      if (!isAuthorized) {
+        return await m.send("_Access restricted. Command authority not recognized._");
+      }
+    }
+    return;
+  }
+  
+  // Verify session owner
+  if (m.sender !== session.userId) return;
   
   const elapsed = Date.now() - session.startTime;
   if (elapsed > session.duration) {
     activeCodexSessions.delete(m.chat);
     return;
   }
-  
-  const message = text.toLowerCase().trim();
-  if (!message.includes("codex")) return;
   
   const isAngel = session.userType === "angel";
   const isKenny = session.userType === "kenny";
@@ -2681,141 +2653,111 @@ kord({
   // Parse command - Check for unmute BEFORE mute
   if (message.includes("unmute") && (message.includes("group") || message.includes("chat"))) {
     if (!botAd) {
-      const response = isAngel ?
-        "💔 _Angel, I need admin powers to unmute the group..._" :
-        isKenny ?
-        "⚡ _Boss, I need admin access to execute this._" :
-        "⚠️ _Master, admin access required._";
+      const response = isAngel ? "_Need admin powers, Angel_" :
+                      isKenny ? "_Need admin access, boss_" :
+                      "_Admin access required_";
       return await m.send(response);
     }
     
     if (!userIsAdmin) {
-      const response = isAngel ?
-        "💕 _Beautiful, you need admin powers for this..._" :
-        isKenny ?
-        "🔥 _Boss, you need admin privileges for this command._" :
-        "🔐 _Master, administrative authority needed._";
+      const response = isAngel ? "_You need admin powers for this_" :
+                      isKenny ? "_You need admin privileges, boss_" :
+                      "_Administrative authority needed_";
       return await m.send(response);
     }
     
     await m.client.groupSettingUpdate(m.chat, "not_announcement");
-    const response = isAngel ?
-      "✅ 💖 _Group unmuted for you, my Angel!_" :
-      isKenny ?
-      "✅ ⚡ _Group unmuted, Boss. Done deal._" :
-      "✅ ⚡ _Group unmuted, Master._";
+    const response = isAngel ? "▸ Group unmuted, Angel" :
+                    isKenny ? "▸ Group unmuted, boss" :
+                    "▸ Group unmuted";
     return await m.send(response);
   }
   
   if (message.includes("mute") && (message.includes("group") || message.includes("chat"))) {
     if (!botAd) {
-      const response = isAngel ?
-        "💔 _Angel, I need admin powers to mute the group..._" :
-        isKenny ?
-        "⚡ _Boss, I need admin access to execute this._" :
-        "⚠️ _Master, I require admin access._";
+      const response = isAngel ? "_Need admin powers, Angel_" :
+                      isKenny ? "_Need admin access, boss_" :
+                      "_Admin access required_";
       return await m.send(response);
     }
     
     if (!userIsAdmin) {
-      const response = isAngel ?
-        "💕 _My love, you need to be an admin to use this command..._" :
-        isKenny ?
-        "🔥 _Boss, you need admin privileges for this command._" :
-        "🔐 _Master, admin privileges required._";
+      const response = isAngel ? "_You need admin powers for this_" :
+                      isKenny ? "_You need admin privileges, boss_" :
+                      "_Administrative authority needed_";
       return await m.send(response);
     }
     
     await m.client.groupSettingUpdate(m.chat, "announcement");
-    const response = isAngel ?
-      "✅ 💖 _Group muted successfully for my Angel!_" :
-      isKenny ?
-      "✅ ⚡ _Group muted, Boss. Silence enforced._" :
-      "✅ ⚡ _Group muted, Master. Silence enforced._";
+    const response = isAngel ? "▸ Group muted, Angel" :
+                    isKenny ? "▸ Group muted, boss" :
+                    "▸ Group muted";
     return await m.send(response);
   }
   
   if (message.includes("unlock") && (message.includes("group") || message.includes("chat"))) {
     if (!botAd) {
-      const response = isAngel ?
-        "💔 _My Angel, I need admin powers to unlock the group for you..._" :
-        isKenny ?
-        "⚡ _Boss, I need admin privileges to unlock the group._" :
-        "⚠️ _Master, administrative privileges required._";
+      const response = isAngel ? "_Need admin powers, Angel_" :
+                      isKenny ? "_Need admin access, boss_" :
+                      "_Admin access required_";
       return await m.send(response);
     }
     
     if (!userIsAdmin) {
-      const response = isAngel ?
-        "💕 _Sweetie, you need admin powers for this, but you're still my queen..._" :
-        isKenny ?
-        "🔥 _Boss, you need admin authority for this command._" :
-        "🔐 _Master, administrative authority required._";
+      const response = isAngel ? "_You need admin powers for this_" :
+                      isKenny ? "_You need admin privileges, boss_" :
+                      "_Administrative authority needed_";
       return await m.send(response);
     }
     
     await m.client.groupSettingUpdate(m.chat, 'unlocked');
-    const response = isAngel ?
-      "✅ 💖 _Group unlocked for you, my Angel! You're amazing..._" :
-      isKenny ?
-      "✅ ⚡ _Group settings unlocked, Boss. You got it._" :
-      "✅ ⚡ _Group settings unlocked, Master._";
+    const response = isAngel ? "▸ Group unlocked, Angel" :
+                    isKenny ? "▸ Group unlocked, boss" :
+                    "▸ Group unlocked";
     return await m.send(response);
   }
   
   if (message.includes("lock") && (message.includes("group") || message.includes("chat"))) {
     if (!botAd) {
-      const response = isAngel ? 
-        "💔 _My Angel, I wish I could, but I need admin powers to lock the group for you..._" :
-        isKenny ?
-        "⚡ _Boss, I need admin privileges to lock the group._" :
-        "⚠️ _Master, I require administrative privileges to execute this command._";
+      const response = isAngel ? "_Need admin powers, Angel_" :
+                      isKenny ? "_Need admin access, boss_" :
+                      "_Admin access required_";
       return await m.send(response);
     }
     
     if (!userIsAdmin) {
-      const response = isAngel ?
-        "💕 _My beautiful Angel, you need admin powers to use this command, but you're still perfect to me..._" :
-        isKenny ?
-        "🔥 _Boss, you need admin authority for this command._" :
-        "🔐 _Master, this command requires your administrative authority in this realm._";
+      const response = isAngel ? "_You need admin powers for this_" :
+                      isKenny ? "_You need admin privileges, boss_" :
+                      "_Administrative authority needed_";
       return await m.send(response);
     }
     
     await m.client.groupSettingUpdate(m.chat, 'locked');
-    const response = isAngel ?
-      "✅ 💖 _Group locked successfully, my Angel! Anything for you, princess..._" :
-      isKenny ?
-      "✅ ⚡ _Group settings locked, Boss. Domain secured._" :
-      "✅ ⚡ _Group settings locked, Master. Your domain is secure._";
+    const response = isAngel ? "▸ Group locked, Angel" :
+                    isKenny ? "▸ Group locked, boss" :
+                    "▸ Group locked";
     return await m.send(response);
   }
   
   if (message.includes("kick") || message.includes("remove")) {
     if (!botAd) {
-      const response = isAngel ?
-        "💔 _Princess, I need admin powers to kick someone..._" :
-        isKenny ?
-        "⚡ _Boss, I need admin access to kick._" :
-        "⚠️ _Master, bot admin access required._";
+      const response = isAngel ? "_Need admin powers, Angel_" :
+                      isKenny ? "_Need admin access, boss_" :
+                      "_Admin access required_";
       return await m.send(response);
     }
     
     if (!userIsAdmin) {
-      const response = isAngel ?
-        "💕 _Sweetheart, you need to be admin to kick others..._" :
-        isKenny ?
-        "🔥 _Boss, you need admin privileges to kick._" :
-        "🔐 _Master, you need admin privileges._";
+      const response = isAngel ? "_You need admin powers for this_" :
+                      isKenny ? "_You need admin privileges, boss_" :
+                      "_Administrative authority needed_";
       return await m.send(response);
     }
     
     if (!m.quoted && !m.mentionedJid[0]) {
-      const response = isAngel ?
-        "💕 _Angel, please reply to or mention someone to kick..._" :
-        isKenny ?
-        "⚡ _Boss, specify the target._" :
-        "⚡ _Master, specify target for removal._";
+      const response = isAngel ? "_Reply to or mention someone to kick_" :
+                      isKenny ? "_Specify target, boss_" :
+                      "_Specify target for removal_";
       return await m.send(response);
     }
     
@@ -2823,133 +2765,100 @@ kord({
     const jid = parsedJid(target);
     
     await m.client.groupParticipantsUpdate(m.chat, [jid], "remove");
-    const response = isAngel ?
-      `✅ 💖 _@${jid.split("@")[0]} kicked for my Angel!_` :
-      isKenny ?
-      `✅ ⚡ _@${jid.split("@")[0]} removed, Boss. Clean._` :
-      `✅ ⚡ _@${jid.split("@")[0]} removed from the realm, Master._`;
+    const response = isAngel ? `▸ @${jid.split("@")[0]} kicked` :
+                    isKenny ? `▸ @${jid.split("@")[0]} removed, boss` :
+                    `▸ @${jid.split("@")[0]} removed`;
     return await m.send(response, { mentions: [jid] });
   }
   
   if ((message.includes("tag") && (message.includes("all") || message.includes("everyone"))) || message.includes("tagall")) {
     const { participants } = await m.client.groupMetadata(m.chat);
-    const response = isAngel ?
-      "💖 _Everyone, pay attention! My Angel has spoken!_ 💖" :
-      isKenny ?
-      "⚡ _Boss Kenny summons all members. Assemble!_ ⚡" :
-      "⚡ _Master summons all members_ ⚡";
+    const response = isAngel ? "_Everyone, Angel has spoken_" :
+                    isKenny ? "_Attention required_" :
+                    "_All members summoned_";
     return await m.send(response, { mentions: participants.map(a => a.jid) });
   }
   
   if (message.includes("demote")) {
     if (!botAd) {
-      const response = isAngel ?
-        "💔 _My Angel, I need admin powers to demote someone..._" :
-        isKenny ?
-        "⚡ _Boss, I need admin access to demote._" :
-        "⚠️ _Master, bot admin access required._";
+      const response = isAngel ? "_Need admin powers, Angel_" :
+                      isKenny ? "_Need admin access, boss_" :
+                      "_Admin access required_";
       return await m.send(response);
     }
     
     if (!userIsAdmin) {
-      const response = isAngel ?
-        "💕 _Sweetheart, you need to be admin to demote others..._" :
-        isKenny ?
-        "🔥 _Boss, you need admin privileges to demote._" :
-        "🔐 _Master, you need admin privileges._";
+      const response = isAngel ? "_You need admin powers for this_" :
+                      isKenny ? "_You need admin privileges, boss_" :
+                      "_Administrative authority needed_";
       return await m.send(response);
     }
     
     if (!m.quoted && !m.mentionedJid[0]) {
-      const response = isAngel ?
-        "💕 _Angel, please reply to or mention someone to demote..._" :
-        isKenny ?
-        "⚡ _Boss, specify the target._" :
-        "⚡ _Master, specify target for demotion._";
+      const response = isAngel ? "_Reply to or mention someone to demote_" :
+                      isKenny ? "_Specify target, boss_" :
+                      "_Specify target for demotion_";
       return await m.send(response);
     }
     
     const target = m.mentionedJid[0] || m.quoted?.sender;
     if (!await isadminn(m, target)) {
-      const response = isAngel ?
-        "💕 _That person is not an admin, my Angel..._" :
-        isKenny ?
-        "⚡ _Boss, target is not an admin._" :
-        "⚡ _Target does not possess administrative privileges, Master._";
-      return await m.send(response);
+      return await m.send("_Target is not an admin_");
     }
     
     const jid = parsedJid(target);
     await m.client.groupParticipantsUpdate(m.chat, [jid], "demote");
-    const response = isAngel ?
-      `✅ 💖 _@${jid.split("@")[0]} demoted successfully for my Angel!_` :
-      isKenny ?
-      `✅ ⚡ _@${jid.split("@")[0]} demoted, Boss. Authority revoked._` :
-      `✅ ⚡ _@${jid.split("@")[0]} stripped of admin status, Master._`;
+    const response = isAngel ? `▸ @${jid.split("@")[0]} demoted` :
+                    isKenny ? `▸ @${jid.split("@")[0]} demoted, boss` :
+                    `▸ @${jid.split("@")[0]} demoted`;
     return await m.send(response, { mentions: [jid] });
   }
   
   if (message.includes("promote") || message.includes("admin")) {
     if (!botAd) {
-      const response = isAngel ?
-        "💔 _My Angel, I need admin powers to promote someone..._" :
-        isKenny ?
-        "⚡ _Boss, I need admin access to promote._" :
-        "⚠️ _Master, bot admin access required._";
+      const response = isAngel ? "_Need admin powers, Angel_" :
+                      isKenny ? "_Need admin access, boss_" :
+                      "_Admin access required_";
       return await m.send(response);
     }
     
     if (!userIsAdmin) {
-      const response = isAngel ?
-        "💕 _Sweetheart, you need to be admin to promote others..._" :
-        isKenny ?
-        "🔥 _Boss, you need admin privileges to promote._" :
-        "🔐 _Master, you need admin privileges._";
+      const response = isAngel ? "_You need admin powers for this_" :
+                      isKenny ? "_You need admin privileges, boss_" :
+                      "_Administrative authority needed_";
       return await m.send(response);
     }
     
     if (!m.quoted && !m.mentionedJid[0]) {
-      const response = isAngel ?
-        "💕 _Angel, please reply to or mention someone to promote..._" :
-        isKenny ?
-        "⚡ _Boss, specify the target._" :
-        "⚡ _Master, specify target for promotion._";
+      const response = isAngel ? "_Reply to or mention someone to promote_" :
+                      isKenny ? "_Specify target, boss_" :
+                      "_Specify target for promotion_";
       return await m.send(response);
     }
     
     const target = m.mentionedJid[0] || m.quoted?.sender;
     if (await isadminn(m, target)) {
-      const response = isAngel ?
-        "💕 _That person is already an admin, my Angel..._" :
-        isKenny ?
-        "⚡ _Boss, target is already an admin._" :
-        "⚡ _Target already possesses administrative privileges, Master._";
-      return await m.send(response);
+      return await m.send("_Target is already an admin_");
     }
     
     const jid = parsedJid(target);
     await m.client.groupParticipantsUpdate(m.chat, [jid], "promote");
-    const response = isAngel ?
-      `✅ 💖 _@${jid.split("@")[0]} promoted successfully for my Angel!_` :
-      isKenny ?
-      `✅ ⚡ _@${jid.split("@")[0]} promoted, Boss. Authority granted._` :
-      `✅ ⚡ _@${jid.split("@")[0]} elevated to admin status, Master._`;
+    const response = isAngel ? `▸ @${jid.split("@")[0]} promoted` :
+                    isKenny ? `▸ @${jid.split("@")[0]} promoted, boss` :
+                    `▸ @${jid.split("@")[0]} promoted`;
     return await m.send(response, { mentions: [jid] });
   }
   
   // Command not understood
   const fallbackResponses = isAngel ? [
-    "💕 _I didn't quite understand that, my Angel... could you rephrase it for me?_",
-    "💖 _Sorry princess, I'm not sure what you want me to do..._",
-    "💞 _My beautiful Angel, could you explain that differently?_"
+    "_Not sure what you mean, Angel_",
+    "_Could you rephrase that?_"
   ] : isKenny ? [
-    "⚡ _Boss, could you clarify that command?_",
-    "🔥 _Not sure what you need, Boss. Try again?_",
-    "👑 _Command unclear, Boss. Rephrase?_"
+    "_Command unclear, boss_",
+    "_Need clarification_"
   ] : [
-    "⚡ _Command unclear, Master. Please rephrase._",
-    "🔍 _Unable to parse instruction. Clarification needed._",
-    "⚠️ _Command not recognized in my protocols, Master._"
+    "_Command unclear_",
+    "_Unable to parse instruction_"
   ];
   
   return await m.send(fallbackResponses[Math.floor(Math.random() * fallbackResponses.length)]);

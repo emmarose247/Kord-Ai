@@ -28,7 +28,7 @@ const fs = require('fs')
 const { warn } = require("../core/db")
 
 kord({
-cmd: 'ping',
+  cmd: 'ping',
   desc: 'check the bot ping',
   react: "🙂‍↔️",
   fromMe: wtype,
@@ -36,16 +36,30 @@ cmd: 'ping',
 }, async (m, text) => {
   try {
     const start = performance.now();
-    const msg = await m.send("```pinging...```");
+    const msg = await m.send("```⚡ Calculating response time...```");
     const end = performance.now();
     const ping = Math.round(end - start);
-    msg.edit(`*_々 Pong! ${ping}ms_*`);
+    
+    const response = `\`\`\`╔═══════════════════════════╗
+║      ⚡ PONG RESPONSE ⚡     
+╚═══════════════════════════╝\`\`\`
+
+༺═──────────────────═༻
+    ⨻ 𝐒𝐏𝐄𝐄𝐃 𝐓𝐄𝐒𝐓 ⨻
+༺═──────────────────═༻
+
+🏓 *Response Time:* \`${ping}ms\`
+
+༺═──────────────────═༻
+   ☀︎ 𝙎𝙮𝙨𝙩𝙚𝙢 𝙍𝙚𝙨𝙥𝙤𝙣𝙨𝙞𝙫𝙚 ☀︎
+༺═──────────────────═༻`;
+    
+    msg.edit(response);
   } catch (e) {
     console.log("cmd error", e)
     return await m.sendErr(e)
   }
 });
-
 
 kord({
   cmd: "ban",
@@ -337,35 +351,50 @@ kord({
     const memoryMB = (memoryUsage.heapUsed / 1024 / 1024).toFixed(2);
     const currentTime = new Date().toLocaleString();
     
-    let msg = `\`\`\`╔════════════════════════╗\n╠ 🤖 ${config().BOT_NAME} RUNTIME Status     ╣\n╠════════════════════════╝\n`
-    msg += `╠ ⏰ Uptime: ${uptime}\n`;
-    msg += `╠ 💾 Memory: ${memoryMB} MB\n`;
-    msg += `╠ 🔄 Process ID: ${process.pid}\n`;
-    msg += `╠ 📅 Time: ${currentTime}\n`;
-    msg += `╠ 🚀 Node: ${process.version}\n`;
-    msg += `╠ 💻 Platform: ${process.platform}\n`;
-    msg += "╠\n╠ ✨ Bot is running smoothly!\n";
-    msg += "╚════════════════════════```";
+    let msg = `\`\`\`╔═══════════════════════════╗
+║    ༒ ${config().BOT_NAME} ༒    
+╚═══════════════════════════╝\`\`\`
+
+    ☆࿐ཽ༵༆༒ 𝑪𝒐𝒅𝒆𝒙 ༒༆࿐ཽ༵☆
+        〔 𝕺𝖜𝖓𝖊𝖗 & 𝕯𝖊𝖛𝖊𝖑𝖔𝖕𝖊𝖗 〕
+
+༺═──────────────────═༻
+    ⨻ 𝐑𝐔𝐍𝐓𝐈𝐌𝐄 𝐒𝐓𝐀𝐓𝐔𝐒 ⨻
+༺═──────────────────═༻
+
+╭───═━┈ 𖢠 𝐒𝐘𝐒𝐓𝐄𝐌 𝐈𝐍𝐅𝐎 𖢠 ┈━═───╮
+│  ⏰ Uptime: \`${uptime}\`
+│  💾 Memory: \`${memoryMB} MB\`
+│  🔄 Process ID: \`${process.pid}\`
+│  📅 Timestamp: \`${currentTime}\`
+│  🚀 Node Version: \`${process.version}\`
+│  💻 Platform: \`${process.platform}\`
+╰───═━┈ ◈ ┈━═───╯
+
+༺═──────────────────═༻
+   ✨ 𝙎𝙮𝙨𝙩𝙚𝙢 𝙊𝙥𝙚𝙧𝙖𝙩𝙞𝙣𝙜 𝙎𝙢𝙤𝙤𝙩𝙝𝙡𝙮 ✨
+༺═──────────────────═༻`;
 
     return await m.client.sendMessage(m.chat, {
-  text: msg,
-  contextInfo: {
-    externalAdReply: {
-      title: `${config().BOT_NAME} Runtime`,
-      body: `Uptime: ${uptime} | Memory: ${memoryMB}MB`,
-      mediaType: 1,
-      renderLargerThumbnail: false,
-      showAdAttribution: false,
-      sourceUrl: "https://kord-ai.web.id"
-    }
-  }
-})
+      text: msg,
+      contextInfo: {
+        externalAdReply: {
+          title: `${config().BOT_NAME} Runtime`,
+          body: `Uptime: ${uptime} | Memory: ${memoryMB}MB`,
+          mediaType: 1,
+          renderLargerThumbnail: false,
+          showAdAttribution: false,
+          sourceUrl: "https://kord-ai.web.id"
+        }
+      }
+    })
     
   } catch (error) {
     console.error('Error in runtime command:', error);
     await m.send(`Error in runtime: ${error}`);
   }
 });
+
 
 kord({
   cmd: "stats",

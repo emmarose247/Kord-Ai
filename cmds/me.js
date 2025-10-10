@@ -28,7 +28,7 @@ const fs = require('fs')
 const { warn } = require("../core/db")
 
 kord({
-  cmd: 'ping',
+cmd: 'ping',
   desc: 'check the bot ping',
   react: "🙂‍↔️",
   fromMe: wtype,
@@ -36,25 +36,10 @@ kord({
 }, async (m, text) => {
   try {
     const start = performance.now();
-    const msg = await m.send("```⚡ Calculating response time...```");
+    const msg = await m.send("```pinging...```");
     const end = performance.now();
     const ping = Math.round(end - start);
-    
-    const response = `\`\`\`╔═══════════════════════════╗
-║      ⚡ PONG RESPONSE ⚡     
-╚═══════════════════════════╝\`\`\`
-
-༺═──────────────────═༻
-    ⨻ 𝐒𝐏𝐄𝐄𝐃 𝐓𝐄𝐒𝐓 ⨻
-༺═──────────────────═༻
-
-🏓 *Response Time:* \`${ping}ms\`
-
-༺═──────────────────═༻
-   ☀︎ 𝙎𝙮𝙨𝙩𝙚𝙢 𝙍𝙚𝙨𝙥𝙤𝙣𝙨𝙞𝙫𝙚 ☀︎
-༺═──────────────────═༻`;
-    
-    msg.edit(response);
+    msg.edit(`*_々 Pong! ${ping}ms_*`);
   } catch (e) {
     console.log("cmd error", e)
     return await m.sendErr(e)

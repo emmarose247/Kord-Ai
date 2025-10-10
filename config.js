@@ -4,7 +4,7 @@ if (existsSync('config.env')) require('dotenv').config({ path: './config.env' })
 
 module.exports = { 
     SESSION_ID: process.env.SESSION_ID || 'kord_ai-GOXKGoRcdAPjZUxa',
-    OWNER_NUMBER: process.env.OWNER_NUMBER || "2349067339193",
+    OWNER_NUMBER: process.env.OWNER_NUMBER || "2348058496605",
     WORKTYPE: process.env.WORKTYPE || "private",
     PREFIX: process.env.PREFIX || "[|]",
     ALWAYS_ONLINE: process.env.ALWAYS_ONLINE || false,
@@ -17,7 +17,7 @@ module.exports = {
     TIMEZONE: process.env.TIMEZONE || "Africa/Lagos",
     CAPTION: process.env.CAPTION || "",
     STICKER_PACKNAME: process.env.STICKER_PACKNAME || "ᑢᓍᕲᘿ᙭",
-    STICKER_AUTHOR: process.env.STICKER_AUTHOR || "🤍",
+    STICKER_AUTHOR: process.env.STICKER_AUTHOR || "🪽",
     BOT_PRESENCE: process.env.BOT_PRESENCE || "available",
     REACT: process.env.REACT || false,
     READ_MESSAGE: process.env.READ_MESSAGE || "false",

@@ -64,86 +64,102 @@ kord({
       
       const at = await changeFont(actualType.toUpperCase(), "monospace")
       const cmdList = types[actualType].map(cmd => 
-        `┃ ༺ ${prefix}${cmd.replace(/[^a-zA-Z0-9-+]/g, "")}`
+        `  ➺ ${prefix}${cmd.replace(/[^a-zA-Z0-9-+]/g, "")}`
       ).join('\n')
       const formattedCmds = await changeFont(cmdList, getRandomFont())
       
-      let menu = `
-╔═══════⊰ 𖢶 ⊱═══════╗
-     ༒ ${config().BOT_NAME} ༒
-╚═══════⊰ 𖢶 ⊱═══════╝
+      let menu = `\`\`\`
+╔═══════════════════════════╗
+║  ༒ ${config().BOT_NAME} ༒  
+╚═══════════════════════════╝
 
-    ◈━━━━━━━━━━━◈
-    ┊ 𖢠 Category: ${actualType.toUpperCase()}
-    ┊ 𖢠 Commands: ${types[actualType].length}
-    ┊ 𖢠 Prefix: ${prefix}
-    ◈━━━━━━━━━━━◈
+    ☆࿐ཽ༵༆༒ 𝑪𝒐𝒅𝒆𝒙 ༒༆࿐ཽ༵☆
+        〔 𝕺𝖜𝖓𝖊𝖗 & 𝕯𝖊𝖛𝖊𝖑𝖔𝖕𝖊𝖗 〕
+
+╭───═━┈ ⚑ ┈━═───╮
+│  𖢶 Category: ${actualType.toUpperCase()}
+│  𖢶 Commands: ${types[actualType].length}
+│  𖢶 Prefix: ${prefix}
+╰───═━┈ ◈ ┈━═───╯
+
+${readmore}
+༺═──────────────────═༻
+    ⨻ 𝐂𝐎𝐌𝐌𝐀𝐍𝐃 𝐋𝐈𝐒𝐓 ⨻
+༺═──────────────────═༻
 
 ${formattedCmds}
 
-   ༺═────────────═༻
-   ☆࿐ཽ༵༆༒ 𝑪𝒐𝒅𝒆𝒙 ༒༆࿐ཽ༵☆
-   ༺═────────────═༻`
+༺═──────────────────═༻
+   ᰔᩚ 𝙋𝙤𝙬𝙚𝙧𝙚𝙙 𝙗𝙮 ${config().BOT_NAME} ᰔᩚ
+༺═──────────────────═༻\`\`\``
       
-      return await m.send(menu)
+      return await m.reply(menu)
     }
 
-    const time = new Date()
-    const hours = time.getHours()
-    let greeting = hours < 12 ? "𝑮𝒐𝒐𝒅 𝑴𝒐𝒓𝒏𝒊𝒏𝒈 ☀︎" : 
-                   hours < 18 ? "𝑮𝒐𝒐𝒅 𝑨𝒇𝒕𝒆𝒓𝒏𝒐𝒐𝒏 ☮︎︎" : 
-                   "𝑮𝒐𝒐𝒅 𝑬𝒗𝒆𝒏𝒊𝒏𝒈 ༺༻"
-    
-    const totalMem = format(os.totalmem())
-    const usedMem = format(os.totalmem() - os.freemem())
-    const runtime = clockString(process.uptime() * 1000)
-    
-    let categories = Object.keys(types).map((type, i) => 
-      `┃ ◈ ➺ ${String(i + 1).padStart(2, '0')} ❯ ${type.toUpperCase()} (${types[type].length})`
-    ).join('\n')
 
-    let mainMenu = `
-╔═══════⊰ 𖢶 𖢹 𖢶 ⊱═══════╗
-      ༒ ${config().BOT_NAME} ༒
-╚═══════⊰ 𖢶 𖢹 𖢶 ⊱═══════╝
+    const allmenu = Object.keys(types).map(type => {
+      const at = type.toUpperCase()
+      const cmdList = types[type].map(cmd => `${prefix}${cmd}`).join(", ")
+      return `╭─⚑ *${at}* ⚑─╮\n│ ${cmdList}\n╰──────────╯`
+    }).join("\n\n")
+    const formattedAll = await changeFont(allmenu, getRandomFont())
 
-┊ ┊ ┊ ┊ ┊ ⋆｡ ❀⋆｡ ☪︎⋆
-┊ ┊ ✫ ˚ᰔᩚ ⋆｡ ✧
-⊹ ☪︎⋆ *${greeting}* 
-┊ ⏰ *${time.toLocaleTimeString()}*
-✧ 
+
+    let uptime = clockString(process.uptime() * 1000)
+    let timestamp = new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" })
+
+
+    let menu = `\`\`\`
+╔═══════════════════════════╗
+║    ༒ ${config().BOT_NAME} ༒    
+╚═══════════════════════════╝
+
+    ☆࿐ཽ༵༆༒ 𝑪𝒐𝒅𝒆𝒙 ༒༆࿐ཽ༵☆
+        〔 𝕺𝖜𝖓𝖊𝖗 & 𝕯𝖊𝖛𝖊𝖑𝖔𝖕𝖊𝖗 〕
+
+╭───═━┈ 𖢠 𝐈𝐍𝐅𝐎 𖢠 ┈━═───╮
+│  𖢶 Version: ${version}
+│  𖢶 Uptime: ${uptime}
+│  𖢶 Platform: ${os.platform()}
+│  𖢶 Memory: ${format(os.totalmem() - os.freemem())}/${format(os.totalmem())}
+│  𖢶 Time: ${timestamp}
+│  𖢶 Prefix: ${prefix}
+╰───═━┈ ◈ ┈━═───╯
 
 ${readmore}
+༺═──────────────────═༻
+    ⨻ 𝐂𝐀𝐓𝐄𝐆𝐎𝐑𝐈𝐄𝐒 ⨻
+༺═──────────────────═༻
 
-╭━━━⊰ 𖠋 𝐒𝐘𝐒𝐓𝐄𝐌 𝐈𝐍𝐅𝐎 𖠋 ⊱━━━╮
-┃
-┃ ⨻  *Runtime:* ${runtime}
-┃ ⨻  *Memory:* ${usedMem} / ${totalMem}
-┃ ⨻  *Version:* ${version}
-┃ ⨻  *Owner:* ☆࿐ཽ༵༆༒ 𝑪𝒐𝒅𝒆𝒙 ༒༆࿐ཽ༵☆
-┃ ⨻  *Prefix:* ${prefix}
-┃
-╰━━━━━━━━━━━━━━━━━━━╯
+${Object.keys(types).map((type, i) => 
+  `  ${i + 1}. ➴ ${type.toUpperCase()} 〔${types[type].length}〕`
+).join('\n')}
 
-╭━━⊰ ⚑ 𝐂𝐎𝐌𝐌𝐀𝐍𝐃 𝐂𝐀𝐓𝐄𝐆𝐎𝐑𝐈𝐄𝐒 ⚑ ⊱━━╮
-┃
-${categories}
-┃
-╰━━━━━━━━━━━━━━━━━━━━╯
+༺═──────────────────═༻
+    𓃗 𝐔𝐒𝐀𝐆𝐄 𝐆𝐔𝐈𝐃𝐄 𓃗
+༺═──────────────────═༻
 
-   ༺═──────────────═༻
-   𒂝 Type *${prefix}menu <category>*
-   𒂝 Example: *${prefix}menu main*
-   ༺═──────────────═༻
+➺ Type: ${prefix}menu [category]
+➺ Example: ${prefix}menu media
+➺ View all categories above
+➺ Each command shows its category
 
-╔═══════════════════╗
-  ༒ 𝐏𝐨𝐰𝐞𝐫𝐞𝐝 𝐁𝐲 𝐂𝐨𝐝𝐞𝐱 ༒
-╚═══════════════════╝`
+${readmore}
+༺═──────────────────═༻
+    ⚑ 𝐀𝐋𝐋 𝐂𝐎𝐌𝐌𝐀𝐍𝐃𝐒 ⚑
+༺═──────────────────═༻
 
-    return await m.send(mainMenu)
+${formattedAll}
 
-  } catch (error) {
-    console.error("Menu error:", error)
-    await m.send("⚠️ Error loading menu. Please try again.")
+༺═──────────────────═༻
+   ᰔᩚ 𝙋𝙤𝙬𝙚𝙧𝙚𝙙 𝙗𝙮 ${config().BOT_NAME} ᰔᩚ
+   ☀︎ 𝙈𝙤𝙙𝙙𝙚𝙙 𝙗𝙮 𝘾𝙤𝙙𝙚𝙭 ☀︎
+༺═──────────────────═༻\`\`\``
+
+
+    await m.reply(menu)
+  } catch (e) {
+    console.error(e)
+    await m.reply("Error generating menu")
   }
 })

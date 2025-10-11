@@ -63,7 +63,7 @@ kord({
 
 kord({
   on: "text",
-  fromMe: wtype
+  fromMe: false
 }, async (m, text) => {
   try {
   global.tictactoe = global.tictactoe || {}
@@ -511,7 +511,8 @@ ${game.wordsCount ? `📊 *Final Stats:*
 })
 
 kord({
-  on: 'text'
+  on: 'text',
+  fromMe: false
 }, async (m, text) => {
   try {
   if (m.isBot) return

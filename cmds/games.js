@@ -749,3 +749,314 @@ Word not found in dictionary`)
     console.log("wcg error", e)
   }
 })
+
+// Truth or Dare
+const truthQuestions = [
+  "What's the most embarrassing thing you've ever done?",
+  "What's your biggest secret?",
+  "Who was your first crush?",
+  "What's the worst lie you've ever told?",
+  "What's something you've never told anyone?",
+  "What's your biggest fear?",
+  "What's the most childish thing you still do?",
+  "What's a rumor you spread that you regret?",
+  "What's your biggest insecurity?",
+  "What's the meanest thing you've ever said to someone?",
+  "Have you ever cheated on a test?",
+  "What's the worst date you've ever been on?",
+  "What's your guilty pleasure?",
+  "What's something illegal you've done?",
+  "Who in this group would you date?",
+  "What's the longest you've gone without showering?",
+  "What's your biggest regret?",
+  "Have you ever had a crush on a friend's partner?",
+  "What's the most expensive thing you've stolen?",
+  "What's your most embarrassing nickname?"
+]
+
+const dareActions = [
+  "Do 20 pushups",
+  "Send a voice message singing a song",
+  "Change your profile picture to something embarrassing for 24 hours",
+  "Text your crush and tell them how you feel",
+  "Do your best impression of someone in the group",
+  "Speak in an accent for the next 3 messages",
+  "Let someone else type your status for a day",
+  "Post an embarrassing selfie",
+  "Call someone random and sing 'Happy Birthday'",
+  "Do 50 jumping jacks",
+  "Eat a spoonful of hot sauce",
+  "Let the group choose your profile pic for a week",
+  "Dance to a song and send a video",
+  "Text your parents saying you love them in a dramatic way",
+  "Speak only in rhymes for the next 5 messages",
+  "Do the silliest dance you know",
+  "Send a message to your ex",
+  "Let someone go through your phone for 1 minute",
+  "Post a really bad joke on your status",
+  "Howl like a wolf and send a voice note"
+]
+
+kord({
+  cmd: "truth",
+  desc: "Get a random truth question",
+  fromMe: wtype,
+  type: "game"
+}, async (m) => {
+  try {
+    const question = truthQuestions[Math.floor(Math.random() * truthQuestions.length)]
+    return await m.send(`\`\`\`🎭 TRUTH\`\`\`
+
+❓ *${question}*
+
+_Answer honestly!_`)
+  } catch (e) {
+    console.log("cmd error", e)
+    return await m.sendErr(e)
+  }
+})
+
+kord({
+  cmd: "dare",
+  desc: "Get a random dare challenge",
+  fromMe: wtype,
+  type: "game"
+}, async (m) => {
+  try {
+    const dare = dareActions[Math.floor(Math.random() * dareActions.length)]
+    return await m.send(`\`\`\`🎭 DARE\`\`\`
+
+💪 *${dare}*
+
+_I dare you to do it!_`)
+  } catch (e) {
+    console.log("cmd error", e)
+    return await m.sendErr(e)
+  }
+})
+
+// Russian Roulette
+const rouletteGames = {}
+
+kord({
+  cmd: "roulette",
+  desc: "Play Russian roulette",
+  fromMe: wtype,
+  type: "game"
+}, async (m) => {
+  try {
+    const chat = m.chat
+    const sender = m.sender
+    
+    if (!rouletteGames[chat]) {
+      rouletteGames[chat] = {
+        chamber: Math.floor(Math.random() * 6) + 1,
+        currentShot: 0
+      }
+    }
+    
+    const game = rouletteGames[chat]
+    game.currentShot++
+    
+    await m.send(`\`\`\`🔫 RUSSIAN ROULETTE\`\`\`
+
+@${sender.split('@')[0]} pulls the trigger...
+
+_*Click*_`, { mentions: [sender] })
+    
+    await new Promise(r => setTimeout(r, 2000))
+    
+    if (game.currentShot === game.chamber) {
+      await m.send(`\`\`\`💥 BANG!\`\`\`
+
+@${sender.split('@')[0]} is out! 💀
+
+_Game over. Starting new game..._`, { mentions: [sender] })
+      delete rouletteGames[chat]
+    } else {
+      const remaining = 6 - game.currentShot
+      await m.send(`\`\`\`✅ SAFE!\`\`\`
+
+@${sender.split('@')[0]} survived!
+
+🔫 *Shots fired:* ${game.currentShot}/6
+🎯 *Remaining chambers:* ${remaining}
+
+_Pass the gun to the next player..._`, { mentions: [sender] })
+    }
+  } catch (e) {
+    console.log("cmd error", e)
+    return await m.sendErr(e)
+  }
+})
+
+// Dice Roll
+kord({
+  cmd: "dice",
+  desc: "Roll a dice",
+  fromMe: wtype,
+  type: "game"
+}, async (m) => {
+  try {
+    const result = Math.floor(Math.random() * 6) + 1
+    const diceEmojis = ['⚀', '⚁', '⚂', '⚃', '⚄', '⚅']
+    
+    return await m.send(`\`\`\`🎲 DICE ROLL\`\`\`
+
+${diceEmojis[result - 1]}
+
+*You rolled a ${result}!*`)
+  } catch (e) {
+    console.log("cmd error", e)
+    return await m.sendErr(e)
+  }
+})
+
+// Coin Flip
+kord({
+  cmd: "coin",
+  desc: "Flip a coin",
+  fromMe: wtype,
+  type: "game"
+}, async (m) => {
+  try {
+    const result = Math.random() < 0.5 ? "Heads" : "Tails"
+    const emoji = result === "Heads" ? "🪙" : "💰"
+    
+    return await m.send(`\`\`\`🪙 COIN FLIP\`\`\`
+
+_*Flipping...*_
+
+${emoji}
+
+*Result: ${result}!*`)
+  } catch (e) {
+    console.log("cmd error", e)
+    return await m.sendErr(e)
+  }
+})
+
+// Magic 8 Ball
+kord({
+  cmd: "8ball",
+  desc: "Ask the magic 8 ball a question",
+  fromMe: wtype,
+  type: "game"
+}, async (m, text) => {
+  try {
+    if (!text) {
+      return await m.send(`\`\`\`🔮 MAGIC 8 BALL\`\`\`
+
+Please ask a question!
+
+_Example: ${prefix}8ball Will I be rich?_`)
+    }
+    
+    const responses = [
+      "It is certain",
+      "It is decidedly so",
+      "Without a doubt",
+      "Yes definitely",
+      "You may rely on it",
+      "As I see it, yes",
+      "Most likely",
+      "Outlook good",
+      "Yes",
+      "Signs point to yes",
+      "Reply hazy, try again",
+      "Ask again later",
+      "Better not tell you now",
+      "Cannot predict now",
+      "Concentrate and ask again",
+      "Don't count on it",
+      "My reply is no",
+      "My sources say no",
+      "Outlook not so good",
+      "Very doubtful"
+    ]
+    
+    const answer = responses[Math.floor(Math.random() * responses.length)]
+    
+    return await m.send(`\`\`\`🔮 MAGIC 8 BALL\`\`\`
+
+*Question:* ${text}
+
+_*Shaking the ball...*_
+
+🎱 *${answer}*`)
+  } catch (e) {
+    console.log("cmd error", e)
+    return await m.sendErr(e)
+  }
+})
+
+// Mocking SpongeBob Text
+kord({
+  cmd: "mock",
+  desc: "Convert text to mOcKiNg SpOnGeBoB format",
+  fromMe: wtype,
+  type: "game"
+}, async (m, text) => {
+  try {
+    if (!text && !m.quoted) {
+      return await m.send(`\`\`\`🧽 MOCKING SPONGEBOB\`\`\`
+
+Please provide text or reply to a message!
+
+_Example: ${prefix}mock your text here_`)
+    }
+    
+    const input = text || (m.quoted ? m.quoted.text : "")
+    if (!input) {
+      return await m.send("No text found to mock!")
+    }
+    
+    let mocked = ""
+    for (let i = 0; i < input.length; i++) {
+      if (Math.random() < 0.5) {
+        mocked += input[i].toLowerCase()
+      } else {
+        mocked += input[i].toUpperCase()
+      }
+    }
+    
+    return await m.send(`\`\`\`🧽 MOCKING SPONGEBOB\`\`\`
+
+${mocked}`)
+  } catch (e) {
+    console.log("cmd error", e)
+    return await m.sendErr(e)
+  }
+})
+
+// Reverse Text
+kord({
+  cmd: "reverse",
+  desc: "Reverse your text",
+  fromMe: wtype,
+  type: "game"
+}, async (m, text) => {
+  try {
+    if (!text && !m.quoted) {
+      return await m.send(`\`\`\`🔄 REVERSE TEXT\`\`\`
+
+Please provide text or reply to a message!
+
+_Example: ${prefix}reverse your text here_`)
+    }
+    
+    const input = text || (m.quoted ? m.quoted.text : "")
+    if (!input) {
+      return await m.send("No text found to reverse!")
+    }
+    
+    const reversed = input.split("").reverse().join("")
+    
+    return await m.send(`\`\`\`🔄 REVERSED TEXT\`\`\`
+
+${reversed}`)
+  } catch (e) {
+    console.log("cmd error", e)
+    return await m.sendErr(e)
+  }
+})

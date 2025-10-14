@@ -635,3 +635,285 @@ kord({
     if (bl.stk.includes(hash)) return await m.send(m, {}, "delete")
   }
 })
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+kord({
+  cmd: "status|poststatus",
+  desc: "post media to your WhatsApp status",
+  fromMe: true,
+  type: "status",
+}, async (m, text) => {
+  try {
+    if (!m.quoted?.image && !m.quoted?.video && !m.image && !m.video) {
+      return await m.send("_Reply to image/video to post on status_")
+    }
+
+    let mediaPath;
+    if (m.quoted?.image || m.quoted?.video) {
+      mediaPath = await m.quoted.download()
+    } else {
+      mediaPath = await m.client.downloadMediaMessage(m)
+    }
+
+    const caption = text || "_"
+    const statusJid = m.user.jid.replace('@s.whatsapp.net', '@status.broadcast')
+
+    await m.client.sendMessage(statusJid, {
+      image: m.quoted?.image || m.image ? mediaPath : undefined,
+      video: m.quoted?.video || m.video ? mediaPath : undefined,
+      caption: caption,
+      statusJid: m.user.jid
+    })
+
+    return await m.send("_✓ Posted to status_")
+  } catch (e) {
+    console.log("cmd error", e)
+    return await m.sendErr(e)
+  }
+})
+
+kord({
+  cmd: "statustext",
+  desc: "post text-only status",
+  fromMe: true,
+  type: "status",
+}, async (m, text) => {
+  try {
+    if (!text) return await m.send(`_Example: ${prefix}statustext Your awesome text_`)
+
+    const statusJid = m.user.jid.replace('@s.whatsapp.net', '@status.broadcast')
+
+    await m.client.sendMessage(statusJid, {
+      text: text,
+      statusJid: m.user.jid
+    })
+
+    return await m.send("_✓ Text status posted_")
+  } catch (e) {
+    console.log("cmd error", e)
+    return await m.sendErr(e)
+  }
+})
+
+kord({
+  cmd: "schedule",
+  desc: "schedule a message to be sent later",
+  fromMe: true,
+  type: "scheduler",
+}, async (m, text) => {
+  try {
+    if (!text) {
+      return await m.send(`_Usage: ${prefix}schedule <time_in_minutes> <number/jid> <message>_\n_Example: ${prefix}schedule 30 2348033221144 Hello at 30 mins_`)
+    }
+
+    let parts = text.split("|")
+    if (parts.length < 3) {
+      return await m.send(`_Format: ${prefix}schedule <minutes>|<jid>|<message>_`)
+    }
+
+    let delayMinutes = parseInt(parts[0].trim())
+    let target = parts[1].trim()
+    let msg = parts[2].trim()
+
+    if (isNaN(delayMinutes) || delayMinutes < 1) {
+      return await m.send("_Invalid time. Use minutes (minimum 1)_")
+    }
+
+    let jid = target.includes("@") ? target : `${target}@s.whatsapp.net`
+
+    let schedules = await getData("schedules") || {}
+    let id = Date.now().toString()
+
+    schedules[id] = {
+      jid: jid,
+      message: msg,
+      time: Date.now() + (delayMinutes * 60 * 1000),
+      sent: false
+    }
+
+    await storeData("schedules", schedules)
+    return await m.send(`_✓ Message scheduled for ${delayMinutes} minutes from now_`)
+  } catch (e) {
+    console.log("cmd error", e)
+    return await m.sendErr(e)
+  }
+})
+
+kord({
+  cmd: "schedules",
+  desc: "view all scheduled messages",
+  fromMe: true,
+  type: "scheduler",
+}, async (m, text) => {
+  try {
+    let schedules = await getData("schedules") || {}
+    let list = Object.entries(schedules).filter(([_, v]) => !v.sent)
+
+    if (list.length === 0) {
+      return await m.send("_No scheduled messages_")
+    }
+
+    let msg = "_*❏ Scheduled Messages ❏*_\n\n"
+    list.forEach(([id, sched], idx) => {
+      let timeLeft = Math.ceil((sched.time - Date.now()) / 60000)
+      msg += `${idx + 1}. *To:* ${sched.jid}\n*In:* ${timeLeft}min\n*Msg:* ${sched.message.substring(0, 30)}...\n\n`
+    })
+
+    return await m.send(msg)
+  } catch (e) {
+    console.log("cmd error", e)
+    return await m.sendErr(e)
+  }
+})
+
+kord({
+  cmd: "delschedule|cancelschedule",
+  desc: "delete a scheduled message by index",
+  fromMe: true,
+  type: "scheduler",
+}, async (m, text) => {
+  try {
+    if (!text) return await m.send(`_Example: ${prefix}delschedule 1_`)
+
+    let schedules = await getData("schedules") || {}
+    let list = Object.entries(schedules).filter(([_, v]) => !v.sent)
+    let idx = parseInt(text) - 1
+
+    if (isNaN(idx) || idx < 0 || idx >= list.length) {
+      return await m.send("_Invalid index_")
+    }
+
+    delete schedules[list[idx][0]]
+    await storeData("schedules", schedules)
+    return await m.send("_✓ Schedule deleted_")
+  } catch (e) {
+    console.log("cmd error", e)
+    return await m.sendErr(e)
+  }
+})
+
+kord({
+  cmd: "broadcast",
+  desc: "send message to multiple chats",
+  fromMe: true,
+  type: "messaging",
+}, async (m, text) => {
+  try {
+    if (!text) {
+      return await m.send(`_Usage: ${prefix}broadcast <jid1,jid2,jid3> | <message>_\n_Use commas to separate jids_`)
+    }
+
+    let parts = text.split("|")
+    if (parts.length < 2) {
+      return await m.send("_Format: jids | message_")
+    }
+
+    let jids = parts[0].split(",").map(j => j.trim())
+    let msg = parts[1].trim()
+
+    let success = 0
+    for (let jid of jids) {
+      let target = jid.includes("@") ? jid : `${jid}@s.whatsapp.net`
+      try {
+        await m.client.sendMessage(target, { text: msg })
+        success++
+      } catch (err) {
+        console.log("broadcast error for", target)
+      }
+    }
+
+    return await m.send(`_✓ Message sent to ${success}/${jids.length} chats_`)
+  } catch (e) {
+    console.log("cmd error", e)
+    return await m.sendErr(e)
+  }
+})
+
+
+
+
+
+
+
+kord({
+  cmd: "userinfo|info",
+  desc: "get user information",
+  fromMe: true,
+  type: "user",
+}, async (m, text) => {
+  try {
+    let jid = m.quoted?.sender || m.chat
+    if (text) {
+      jid = text.includes("@") ? text : `${text.replace(/\D/g, '')}@s.whatsapp.net`
+    }
+
+    const status = await m.client.fetchStatus(jid)
+    const profile = await m.client.profilePictureUrl(jid, "image").catch(() => null)
+
+    let info = `_*❏ User Info ❏*_\n\n`
+    info += `*JID:* ${jid}\n`
+    info += `*Status:* ${status?.status || 'No status'}\n`
+    info += `*Profile Pic:* ${profile ? 'Available' : 'None'}\n`
+
+    return await m.send(info)
+  } catch (e) {
+    console.log("cmd error", e)
+    return await m.sendErr(e)
+  }
+})
+
+// Scheduler execution loop
+setInterval(async () => {
+  try {
+    let schedules = await getData("schedules") || {}
+
+    for (let [id, sched] of Object.entries(schedules)) {
+      if (!sched.sent && Date.now() >= sched.time) {
+        try {
+          await m.client.sendMessage(sched.jid, { text: sched.message })
+          sched.sent = true
+          await storeData("schedules", schedules)
+          console.log("Scheduled message sent to", sched.jid)
+        } catch (err) {
+          console.log("Error sending scheduled message", err)
+        }
+      }
+    }
+  } catch (e) {
+    console.log("Scheduler error", e)
+  }
+}, 30000)

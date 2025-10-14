@@ -2200,3 +2200,1118 @@ cmd: "kickr",
     return await m.sendErr(e)
   }
 })
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// Spamtags command
+kord({
+  cmd: "spamtags",
+  desc: "tag all members multiple times",
+  fromMe: wtype,
+  gc: true,
+  type: "group"
+}, async (m, text, cmd) => {
+  try {
+    if (!m.isGroup) return await m.send(`@${m.sender.split("@")[0]}`, { mentions: [m.sender] });
+    
+    const args = text.split(" ");
+    const count = parseInt(args[0]) || 1;
+    const message = args.slice(1).join(" ") || m.quoted?.text || "Tagged!";
+    
+    if (count > 10) return await m.send("_Maximum 10 tags allowed to prevent spam_");
+    if (count < 1) return await m.send(`_Usage: ${cmd} 5 your message here_`);
+    
+    const { participants } = await m.client.groupMetadata(m.chat);
+    
+    for (let i = 0; i < count; i++) {
+      const tagMessage = `${message}\n\n_Tag ${i + 1}/${count}_`;
+      await m.send(tagMessage, { mentions: participants.map(a => a.jid) });
+      if (i < count - 1) await sleep(2000); // 2 second delay between tags
+    }
+  } catch (e) {
+    console.log("cmd error", e);
+    return await m.sendErr(e);
+  }
+});
+
+// Countdown command
+let countdownActive = null;
+
+kord({
+  cmd: "countdown",
+  desc: "countdown before executing a command",
+  fromMe: true,
+  gc: true,
+  type: "group"
+}, async (m, text, cmd) => {
+  try {
+    if (countdownActive) return await m.send("_Another countdown is already active_");
+    
+    const args = text.split(" ");
+    const seconds = parseInt(args[0]);
+    const command = args.slice(1).join(" ");
+    
+    if (!seconds || seconds < 1 || seconds > 300) {
+      return await m.send(`_Usage: ${cmd} 30 kick @user_\n_Maximum 300 seconds allowed_`);
+    }
+    
+    if (!command) return await m.send("_Provide a command to execute after countdown_");
+    
+    countdownActive = true;
+    
+    const countdownMsg = await m.send(`𓆩 Countdown Started: ${seconds}s\n𓆨 Command: ${command}`);
+    
+    for (let i = seconds; i > 0; i--) {
+      const progressBar = "▰".repeat(Math.floor((seconds - i + 1) * 10 / seconds)) + "▱".repeat(10 - Math.floor((seconds - i + 1) * 10 / seconds));
+      
+      const countdownText = `
+╔══════════════════╗
+║ 𝐂𝐎𝐔𝐍𝐓𝐃𝐎𝐖𝐍 𝐀𝐂𝐓𝐈𝐕𝐄
+╠══════════════════╣
+║ ⧗ Time: *${i}s*
+║ ▰ Progress: [${progressBar}]
+║ ◈ Command: *${command}*
+║ ${i <= 5 ? '▲ Final Phase' : '◇ Preparing'}
+╚══════════════════╝`;
+
+      await m.client.sendMessage(m.chat, { edit: countdownMsg.key, text: countdownText });
+      await sleep(1000);
+    }
+    
+    const finalText = `
+╔══════════════════╗
+║ 𝐄𝐗𝐄𝐂𝐔𝐓𝐈𝐍𝐆
+╠══════════════════╣
+║ ▸ Command: *${command}*
+║ ▸ Status: Processing
+╚══════════════════╝`;
+
+    await m.client.sendMessage(m.chat, { edit: countdownMsg.key, text: finalText });
+    
+    // Execute the command
+    setTimeout(async () => {
+      const cmdLower = command.toLowerCase();
+      
+      if (cmdLower.startsWith("kick")) {
+        if (!await isBotAdmin(m)) {
+          countdownActive = null;
+          return await m.send("_Bot needs admin to execute kick_");
+        }
+        
+        const target = m.mentionedJid[0] || m.quoted?.sender;
+        if (!target) {
+          countdownActive = null;
+          return await m.send("_No user specified to kick_");
+        }
+        
+        const jid = parsedJid(target);
+        await m.client.groupParticipantsUpdate(m.chat, [jid], "remove");
+        await m.send(`▸ @${jid.split("@")[0]} kicked via countdown`, { mentions: [jid] });
+        
+      } else if (cmdLower === "mute" || cmdLower === "mute group") {
+        if (!await isBotAdmin(m)) {
+          countdownActive = null;
+          return await m.send("_Bot needs admin to execute mute_");
+        }
+        await m.client.groupSettingUpdate(m.chat, "announcement");
+        await m.send("▸ Group muted via countdown");
+        
+      } else if (cmdLower === "unmute" || cmdLower === "unmute group") {
+        if (!await isBotAdmin(m)) {
+          countdownActive = null;
+          return await m.send("_Bot needs admin to execute unmute_");
+        }
+        await m.client.groupSettingUpdate(m.chat, "not_announcement");
+        await m.send("▸ Group unmuted via countdown");
+        
+      } else if (cmdLower === "lock" || cmdLower === "lock group") {
+        if (!await isBotAdmin(m)) {
+          countdownActive = null;
+          return await m.send("_Bot needs admin to execute lock_");
+        }
+        await m.client.groupSettingUpdate(m.chat, 'locked');
+        await m.send("▸ Group locked via countdown");
+        
+      } else if (cmdLower === "unlock" || cmdLower === "unlock group") {
+        if (!await isBotAdmin(m)) {
+          countdownActive = null;
+          return await m.send("_Bot needs admin to execute unlock_");
+        }
+        await m.client.groupSettingUpdate(m.chat, 'unlocked');
+        await m.send("▸ Group unlocked via countdown");
+        
+      } else if (cmdLower.startsWith("tagall") || cmdLower.startsWith("tag all") || cmdLower.startsWith("tag everyone")) {
+        const { participants } = await m.client.groupMetadata(m.chat);
+        const tagMsg = cmdLower.split(" ").slice(2).join(" ") || "Tagged via countdown";
+        await m.send(tagMsg, { mentions: participants.map(a => a.jid) });
+        
+      } else if (cmdLower.startsWith("promote")) {
+        if (!await isBotAdmin(m)) {
+          countdownActive = null;
+          return await m.send("_Bot needs admin to execute promote_");
+        }
+        
+        const target = m.mentionedJid[0] || m.quoted?.sender;
+        if (!target) {
+          countdownActive = null;
+          return await m.send("_No user specified to promote_");
+        }
+        
+        const jid = parsedJid(target);
+        await m.client.groupParticipantsUpdate(m.chat, [jid], "promote");
+        await m.send(`▸ @${jid.split("@")[0]} promoted via countdown`, { mentions: [jid] });
+        
+      } else if (cmdLower.startsWith("demote")) {
+        if (!await isBotAdmin(m)) {
+          countdownActive = null;
+          return await m.send("_Bot needs admin to execute demote_");
+        }
+        
+        const target = m.mentionedJid[0] || m.quoted?.sender;
+        if (!target) {
+          countdownActive = null;
+          return await m.send("_No user specified to demote_");
+        }
+        
+        const jid = parsedJid(target);
+        await m.client.groupParticipantsUpdate(m.chat, [jid], "demote");
+        await m.send(`▸ @${jid.split("@")[0]} demoted via countdown`, { mentions: [jid] });
+        
+      } else {
+        await m.send("Command not recognized for countdown execution");
+      }
+      
+      countdownActive = null;
+    }, 1000);
+    
+  } catch (e) {
+    countdownActive = null;
+    console.log("cmd error", e);
+    return await m.sendErr(e);
+  }
+});
+
+// Enhanced Codex System
+const activeCodexSessions = new Map();
+
+kord({
+  on: "text",
+  fromMe: false,
+  type: "codex"
+}, async (m, text) => {
+  if (!m.isGroup || !text) return;
+  
+  const message = text.toLowerCase().trim();
+  if (message !== "codex") return;
+  
+  const masterNumber = "2348058496605";
+  const angelNumber = "2347063864118";
+  const kennyNumber = "2349067339193";
+  const isMaster = m.sender.includes(masterNumber);
+  const isAngel = m.sender.includes(angelNumber);
+  const isKenny = m.sender.includes(kennyNumber);
+  
+  // Handle unauthorized access - they can call codex but can't use commands
+  if (!isMaster && !isAngel && !isKenny) {
+    return await m.send("_Codex responding. Listening mode only._");
+  }
+  
+  // Response for Angel
+  if (isAngel) {
+    const heartFrames = [
+      "Detecting presence...",
+      "Voice recognition ▰▰▰▰▱▱▱▱▱▱ 40%",
+      "Synchronization ▰▰▰▰▰▰▱▱▱▱ 60%",
+      "Protocol activation ▰▰▰▰▰▰▰▰▱▱ 80%",
+      "Connection established ▰▰▰▰▰▰▰▰▰▰ 100%"
+    ];
+    
+    const angelLoadingMsg = await m.send("Initializing...");
+    
+    for (let i = 0; i < heartFrames.length; i++) {
+      const angelBanner = `
+╔══════════════════╗
+║ 𝐀𝐍𝐆𝐄𝐋 𝐃𝐄𝐓𝐄𝐂𝐓𝐄𝐃
+╠══════════════════╣
+║ ${heartFrames[i]}
+╚══════════════════╝`;
+      
+      await m.client.sendMessage(m.chat, { edit: angelLoadingMsg.key, text: angelBanner });
+      await sleep(700);
+    }
+    
+    const angelFinal = `
+╔══════════════════╗
+║ 𝐂𝐎𝐃𝐄𝐗 𝐎𝐍𝐋𝐈𝐍𝐄
+╠══════════════════╣
+║ Princess mode active
+║ Listening for 5 minutes
+╚══════════════════╝
+
+_At your service, Angel_`;
+    
+    await m.client.sendMessage(m.chat, { edit: angelLoadingMsg.key, text: angelFinal });
+    
+    activeCodexSessions.set(m.chat, {
+      userId: m.sender,
+      userType: "angel",
+      startTime: Date.now(),
+      duration: 300000
+    });
+    
+    setTimeout(() => {
+      if (activeCodexSessions.has(m.chat)) {
+        activeCodexSessions.delete(m.chat);
+      }
+    }, 300000);
+    
+    return;
+  }
+  
+  // Response for Kenny
+  if (isKenny) {
+    const kennyFrames = [
+      "Authority detected...",
+      "Recognition protocol ▰▰▰▰▱▱▱▱▱▱ 40%",
+      "Boss verification ▰▰▰▰▰▰▱▱▱▱ 60%",
+      "System alignment ▰▰▰▰▰▰▰▰▱▱ 80%",
+      "Full access granted ▰▰▰▰▰▰▰▰▰▰ 100%"
+    ];
+    
+    const kennyLoadingMsg = await m.send("Recognizing authority...");
+    
+    for (let i = 0; i < kennyFrames.length; i++) {
+      const kennyBanner = `
+╔══════════════════╗
+║ 𝐁𝐎𝐒𝐒 𝐃𝐄𝐓𝐄𝐂𝐓𝐄𝐃
+╠══════════════════╣
+║ ${kennyFrames[i]}
+╚══════════════════╝`;
+      
+      await m.client.sendMessage(m.chat, { edit: kennyLoadingMsg.key, text: kennyBanner });
+      await sleep(700);
+    }
+    
+    const kennyFinal = `
+╔══════════════════╗
+║ 𝐂𝐎𝐃𝐄𝐗 𝐎𝐍𝐋𝐈𝐍𝐄
+╠══════════════════╣
+║ Executive mode active
+║ Full access granted
+║ Listening for 5 minutes
+╚══════════════════╝
+
+_Ready when you are, boss_`;
+    
+    await m.client.sendMessage(m.chat, { edit: kennyLoadingMsg.key, text: kennyFinal });
+    
+    activeCodexSessions.set(m.chat, {
+      userId: m.sender,
+      userType: "kenny",
+      startTime: Date.now(),
+      duration: 300000
+    });
+    
+    setTimeout(() => {
+      if (activeCodexSessions.has(m.chat)) {
+        activeCodexSessions.delete(m.chat);
+      }
+    }, 300000);
+    
+    return;
+  }
+  
+  // Master response
+  const systemFrames = [
+    "System boot ▰▰▰▰▱▱▱▱▱▱ 40%",
+    "Core loading ▰▰▰▰▰▰▱▱▱▱ 60%",
+    "Protocols active ▰▰▰▰▰▰▰▰▱▱ 80%",
+    "Codex online ▰▰▰▰▰▰▰▰▰▰ 100%"
+  ];
+  
+  const masterLoadingMsg = await m.send("Initializing...");
+  
+  for (let i = 0; i < systemFrames.length; i++) {
+    const masterBanner = `
+╔══════════════════╗
+║ 𝐒𝐘𝐒𝐓𝐄𝐌 𝐀𝐂𝐓𝐈𝐕𝐀𝐓𝐈𝐎𝐍
+╠══════════════════╣
+║ ${systemFrames[i]}
+╚══════════════════╝`;
+    
+    await m.client.sendMessage(m.chat, { edit: masterLoadingMsg.key, text: masterBanner });
+    await sleep(700);
+  }
+  
+  const masterFinal = `
+╔══════════════════╗
+║ 𝐂𝐎𝐃𝐄𝐗 𝐎𝐍𝐋𝐈𝐍𝐄
+╠══════════════════╣
+║ Neural network online
+║ Command center operational
+║ Listening for 5 minutes
+╚══════════════════╝
+
+_Awaiting commands_`;
+  
+  await m.client.sendMessage(m.chat, { edit: masterLoadingMsg.key, text: masterFinal });
+  
+  activeCodexSessions.set(m.chat, {
+    userId: m.sender,
+    userType: "master",
+    startTime: Date.now(),
+    duration: 300000
+  });
+  
+  setTimeout(() => {
+    if (activeCodexSessions.has(m.chat)) {
+      activeCodexSessions.delete(m.chat);
+    }
+  }, 300000);
+});
+
+// Codex Command Processor
+kord({
+  on: "text",
+  fromMe: false,
+  type: "codex_processor"
+}, async (m, text) => {
+  if (!m.isGroup || !text) return;
+  
+  const session = activeCodexSessions.get(m.chat);
+  const message = text.toLowerCase().trim();
+  
+  // Check if message contains codex command
+  if (!message.includes("codex")) return;
+  
+  // If no session, check if someone is trying to use commands
+  if (!session) {
+    const masterNumber = "2348058496605";
+    const angelNumber = "2347063864118";
+    const kennyNumber = "2349067339193";
+    const isAuthorized = m.sender.includes(masterNumber) || 
+                        m.sender.includes(angelNumber) || 
+                        m.sender.includes(kennyNumber);
+    
+    // If trying to use a command without authority
+    if (message.includes("lock") || message.includes("unlock") || 
+        message.includes("mute") || message.includes("unmute") ||
+        message.includes("kick") || message.includes("remove") ||
+        message.includes("promote") || message.includes("demote") ||
+        message.includes("tag")) {
+      if (!isAuthorized) {
+        return await m.send("_Access restricted. Command authority not recognized._");
+      }
+    }
+    return;
+  }
+  
+  // Verify session owner
+  if (m.sender !== session.userId) return;
+  
+  const elapsed = Date.now() - session.startTime;
+  if (elapsed > session.duration) {
+    activeCodexSessions.delete(m.chat);
+    return;
+  }
+  
+  const isAngel = session.userType === "angel";
+  const isKenny = session.userType === "kenny";
+  const botAd = await isBotAdmin(m);
+  const userIsAdmin = await isAdmin(m);
+  
+  // Parse command - Check for unmute BEFORE mute
+  if (message.includes("unmute") && (message.includes("group") || message.includes("chat"))) {
+    if (!botAd) {
+      const response = isAngel ? "_Need admin powers, Angel_" :
+                      isKenny ? "_Need admin access, boss_" :
+                      "_Admin access required_";
+      return await m.send(response);
+    }
+    
+    if (!userIsAdmin) {
+      const response = isAngel ? "_You need admin powers for this_" :
+                      isKenny ? "_You need admin privileges, boss_" :
+                      "_Administrative authority needed_";
+      return await m.send(response);
+    }
+    
+    await m.client.groupSettingUpdate(m.chat, "not_announcement");
+    const response = isAngel ? "▸ Group unmuted, Angel" :
+                    isKenny ? "▸ Group unmuted, boss" :
+                    "▸ Group unmuted";
+    return await m.send(response);
+  }
+  
+  if (message.includes("mute") && (message.includes("group") || message.includes("chat"))) {
+    if (!botAd) {
+      const response = isAngel ? "_Need admin powers, Angel_" :
+                      isKenny ? "_Need admin access, boss_" :
+                      "_Admin access required_";
+      return await m.send(response);
+    }
+    
+    if (!userIsAdmin) {
+      const response = isAngel ? "_You need admin powers for this_" :
+                      isKenny ? "_You need admin privileges, boss_" :
+                      "_Administrative authority needed_";
+      return await m.send(response);
+    }
+    
+    await m.client.groupSettingUpdate(m.chat, "announcement");
+    const response = isAngel ? "▸ Group muted, Angel" :
+                    isKenny ? "▸ Group muted, boss" :
+                    "▸ Group muted";
+    return await m.send(response);
+  }
+  
+  if (message.includes("unlock") && (message.includes("group") || message.includes("chat"))) {
+    if (!botAd) {
+      const response = isAngel ? "_Need admin powers, Angel_" :
+                      isKenny ? "_Need admin access, boss_" :
+                      "_Admin access required_";
+      return await m.send(response);
+    }
+    
+    if (!userIsAdmin) {
+      const response = isAngel ? "_You need admin powers for this_" :
+                      isKenny ? "_You need admin privileges, boss_" :
+                      "_Administrative authority needed_";
+      return await m.send(response);
+    }
+    
+    await m.client.groupSettingUpdate(m.chat, 'unlocked');
+    const response = isAngel ? "▸ Group unlocked, Angel" :
+                    isKenny ? "▸ Group unlocked, boss" :
+                    "▸ Group unlocked";
+    return await m.send(response);
+  }
+  
+  if (message.includes("lock") && (message.includes("group") || message.includes("chat"))) {
+    if (!botAd) {
+      const response = isAngel ? "_Need admin powers, Angel_" :
+                      isKenny ? "_Need admin access, boss_" :
+                      "_Admin access required_";
+      return await m.send(response);
+    }
+    
+    if (!userIsAdmin) {
+      const response = isAngel ? "_You need admin powers for this_" :
+                      isKenny ? "_You need admin privileges, boss_" :
+                      "_Administrative authority needed_";
+      return await m.send(response);
+    }
+    
+    await m.client.groupSettingUpdate(m.chat, 'locked');
+    const response = isAngel ? "▸ Group locked, Angel" :
+                    isKenny ? "▸ Group locked, boss" :
+                    "▸ Group locked";
+    return await m.send(response);
+  }
+  
+  if (message.includes("kick") || message.includes("remove")) {
+    if (!botAd) {
+      const response = isAngel ? "_Need admin powers, Angel_" :
+                      isKenny ? "_Need admin access, boss_" :
+                      "_Admin access required_";
+      return await m.send(response);
+    }
+    
+    if (!userIsAdmin) {
+      const response = isAngel ? "_You need admin powers for this_" :
+                      isKenny ? "_You need admin privileges, boss_" :
+                      "_Administrative authority needed_";
+      return await m.send(response);
+    }
+    
+    if (!m.quoted && !m.mentionedJid[0]) {
+      const response = isAngel ? "_Reply to or mention someone to kick_" :
+                      isKenny ? "_Specify target, boss_" :
+                      "_Specify target for removal_";
+      return await m.send(response);
+    }
+    
+    const target = m.mentionedJid[0] || m.quoted?.sender;
+    const jid = parsedJid(target);
+    
+    await m.client.groupParticipantsUpdate(m.chat, [jid], "remove");
+    const response = isAngel ? `▸ @${jid.split("@")[0]} kicked` :
+                    isKenny ? `▸ @${jid.split("@")[0]} removed, boss` :
+                    `▸ @${jid.split("@")[0]} removed`;
+    return await m.send(response, { mentions: [jid] });
+  }
+  
+  if ((message.includes("tag") && (message.includes("all") || message.includes("everyone"))) || message.includes("tagall")) {
+    const { participants } = await m.client.groupMetadata(m.chat);
+    const response = isAngel ? "_Everyone, Angel has spoken_" :
+                    isKenny ? "_Attention required_" :
+                    "_All members summoned_";
+    return await m.send(response, { mentions: participants.map(a => a.jid) });
+  }
+  
+  if (message.includes("demote")) {
+    if (!botAd) {
+      const response = isAngel ? "_Need admin powers, Angel_" :
+                      isKenny ? "_Need admin access, boss_" :
+                      "_Admin access required_";
+      return await m.send(response);
+    }
+    
+    if (!userIsAdmin) {
+      const response = isAngel ? "_You need admin powers for this_" :
+                      isKenny ? "_You need admin privileges, boss_" :
+                      "_Administrative authority needed_";
+      return await m.send(response);
+    }
+    
+    if (!m.quoted && !m.mentionedJid[0]) {
+      const response = isAngel ? "_Reply to or mention someone to demote_" :
+                      isKenny ? "_Specify target, boss_" :
+                      "_Specify target for demotion_";
+      return await m.send(response);
+    }
+    
+    const target = m.mentionedJid[0] || m.quoted?.sender;
+    if (!await isadminn(m, target)) {
+      return await m.send("_Target is not an admin_");
+    }
+    
+    const jid = parsedJid(target);
+    await m.client.groupParticipantsUpdate(m.chat, [jid], "demote");
+    const response = isAngel ? `▸ @${jid.split("@")[0]} demoted` :
+                    isKenny ? `▸ @${jid.split("@")[0]} demoted, boss` :
+                    `▸ @${jid.split("@")[0]} demoted`;
+    return await m.send(response, { mentions: [jid] });
+  }
+  
+  if (message.includes("promote") || message.includes("admin")) {
+    if (!botAd) {
+      const response = isAngel ? "_Need admin powers, Angel_" :
+                      isKenny ? "_Need admin access, boss_" :
+                      "_Admin access required_";
+      return await m.send(response);
+    }
+    
+    if (!userIsAdmin) {
+      const response = isAngel ? "_You need admin powers for this_" :
+                      isKenny ? "_You need admin privileges, boss_" :
+                      "_Administrative authority needed_";
+      return await m.send(response);
+    }
+    
+    if (!m.quoted && !m.mentionedJid[0]) {
+      const response = isAngel ? "_Reply to or mention someone to promote_" :
+                      isKenny ? "_Specify target, boss_" :
+                      "_Specify target for promotion_";
+      return await m.send(response);
+    }
+    
+    const target = m.mentionedJid[0] || m.quoted?.sender;
+    if (await isadminn(m, target)) {
+      return await m.send("_Target is already an admin_");
+    }
+    
+    const jid = parsedJid(target);
+    await m.client.groupParticipantsUpdate(m.chat, [jid], "promote");
+    const response = isAngel ? `▸ @${jid.split("@")[0]} promoted` :
+                    isKenny ? `▸ @${jid.split("@")[0]} promoted, boss` :
+                    `▸ @${jid.split("@")[0]} promoted`;
+    return await m.send(response, { mentions: [jid] });
+  }
+  
+  // Command not understood
+  const fallbackResponses = isAngel ? [
+    "_Not sure what you mean, Angel_",
+    "_Could you rephrase that?_"
+  ] : isKenny ? [
+    "_Command unclear, boss_",
+    "_Need clarification_"
+  ] : [
+    "_Command unclear_",
+    "_Unable to parse instruction_"
+  ];
+  
+  return await m.send(fallbackResponses[Math.floor(Math.random() * fallbackResponses.length)]);
+});
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// ============== WARNINGS SYSTEM ==============
+
+kord({ cmd: "warns",
+  desc: "view all warnings for a user",
+  type: "group",
+  fromMe: wtype,
+  gc: true,
+  adminOnly: true,
+}, async (m, text) => {
+  try {
+    var user = m.mentionedJid[0] || m.quoted?.sender || text
+    if (!user) return await m.send("_mention or reply to a user_")
+    
+    user = (user.includes('@') ? user.split('@')[0] : user).replace(/\D/g, '') + '@s.whatsapp.net'
+    
+    var wc = await warn.getWcount(m.chat, user)
+    var allWarns = await warn.getWarns(m.chat, user)
+    
+    if (!allWarns || allWarns.length === 0) {
+      return await m.send(`*@${user.split('@')[0]}* has no warnings`, {mentions: [user]})
+    }
+    
+    let msg = `┏━━『 *WARNING RECORD* 』━━┓\n`
+    msg += `┃ *User:* @${user.split('@')[0]}\n`
+    msg += `┃ *Total Warnings:* ${wc}/${config().WARNCOUNT}\n`
+    msg += `┣━━━━━━━━━━━━━━━━━━━━\n`
+    
+    allWarns.forEach((w, i) => {
+      msg += `┃ ${i + 1}. *Reason:* ${w.reason || "not specified"}\n`
+      msg += `┃    *By:* @${w.warnedBy.split('@')[0]}\n`
+      msg += `┃    *Date:* ${new Date(w.timestamp).toLocaleString()}\n`
+      msg += `┣━━━━━━━━━━━━━━━━━━━━\n`
+    })
+    
+    msg += `┗━━━━━━━━━━━━━━━━━━━━┛`
+    
+    await m.send(msg, {mentions: [user, ...allWarns.map(w => w.warnedBy)]})
+  } catch (e) {
+    console.log("cmd error", e)
+    return await m.sendErr(e)
+  }
+})
+
+kord({ cmd: "resetwarn",
+  desc: "clear warnings for a user",
+  type: "group",
+  fromMe: wtype,
+  gc: true,
+  adminOnly: true,
+}, async (m, text) => {
+  try {
+    var user = m.mentionedJid[0] || m.quoted?.sender || text
+    if (!user) return await m.send("_mention or reply to a user_")
+    
+    user = (user.includes('@') ? user.split('@')[0] : user).replace(/\D/g, '') + '@s.whatsapp.net'
+    
+    var r = await warn.resetWarn(m.chat, user)
+    if (!r) return await m.send("_user hasn't been warned_")
+    
+    return await m.send(`*✓ Warnings cleared for @${user.split('@')[0]}*`, {mentions: [user]})
+  } catch (e) {
+    console.log("cmd error", e)
+    return await m.sendErr(e)
+  }
+})
+
+// ============== BAN/KICK LISTS ==============
+
+kord({ cmd: "banlist|kicklist",
+  desc: "show banned/kicked users",
+  type: "group",
+  fromMe: wtype,
+  gc: true,
+  adminOnly: true,
+}, async (m, text, cmd) => {
+  try {
+    var data = await getData("akick") || []
+    
+    if (data.length === 0) {
+      return await m.send("_No banned users found_")
+    }
+    
+    let msg = `┏━━『 *BANNED USERS* 』━━┓\n`
+    msg += `┃ Total: ${data.length}\n`
+    msg += `┣━━━━━━━━━━━━━━━━━━━━\n`
+    
+    data.forEach((user, i) => {
+      const num = user.split('@')[0]
+      msg += `┃ ${i + 1}. @${num}\n`
+    })
+    
+    msg += `┗━━━━━━━━━━━━━━━━━━━━┛`
+    
+    await m.send(msg, {mentions: data})
+  } catch (e) {
+    console.log("cmd error", e)
+    return await m.sendErr(e)
+  }
+})
+
+// ============== NEW MEMBERS ==============
+
+kord({ cmd: "newmembers|recentjoins",
+  desc: "list recently joined members",
+  type: "group",
+  fromMe: wtype,
+  gc: true,
+  adminOnly: true,
+}, async (m, text, cmd, store) => {
+  try {
+    const days = parseInt(text) || 7
+    const cutoff = Date.now() - (days * 24 * 3600 * 1000)
+    
+    const meta = await m.client.groupMetadata(m.chat)
+    const newMembers = []
+    
+    // This requires tracking join times - you'd need to store this data
+    // For now, we'll show all non-admin members as a workaround
+    const members = meta.participants.filter(p => !p.admin)
+    
+    if (members.length === 0) {
+      return await m.send("_No new members found_")
+    }
+    
+    let msg = `┏━━『 *GROUP MEMBERS* 』━━┓\n`
+    msg += `┃ Total Members: ${members.length}\n`
+    msg += `┣━━━━━━━━━━━━━━━━━━━━\n`
+    
+    members.slice(0, 20).forEach((p, i) => {
+      msg += `┃ ${i + 1}. @${p.id.split('@')[0]}\n`
+    })
+    
+    if (members.length > 20) {
+      msg += `┃ ... and ${members.length - 20} more\n`
+    }
+    
+    msg += `┗━━━━━━━━━━━━━━━━━━━━┛`
+    
+    await m.send(msg, {mentions: members.map(p => p.id)})
+  } catch (e) {
+    console.log("cmd error", e)
+    return await m.sendErr(e)
+  }
+})
+
+// ============== POLL SYSTEM ==============
+
+const activePolls = new Map()
+
+kord({ cmd: "poll",
+  desc: "create a poll",
+  type: "group",
+  fromMe: wtype,
+  gc: true,
+  adminOnly: true,
+}, async (m, text, cmd) => {
+  try {
+    if (!text) {
+      return await m.send(`_Usage: ${cmd} question | option1 | option2 | option3_\n_Example: ${cmd} Best color? | Red | Blue | Green_`)
+    }
+    
+    const parts = text.split('|').map(p => p.trim())
+    if (parts.length < 3) {
+      return await m.send("_Provide at least a question and 2 options_")
+    }
+    
+    const question = parts[0]
+    const options = parts.slice(1)
+    
+    if (options.length > 10) {
+      return await m.send("_Maximum 10 options allowed_")
+    }
+    
+    const pollId = Date.now().toString()
+    activePolls.set(m.chat, {
+      id: pollId,
+      question,
+      options,
+      votes: new Map(),
+      creator: m.sender,
+      timestamp: Date.now()
+    })
+    
+    let msg = `┏━━『 *POLL* 』━━┓\n`
+    msg += `┃ *Question:* ${question}\n`
+    msg += `┣━━━━━━━━━━━━━━━━━━━━\n`
+    options.forEach((opt, i) => {
+      msg += `┃ ${i + 1}. ${opt}\n`
+    })
+    msg += `┣━━━━━━━━━━━━━━━━━━━━\n`
+    msg += `┃ *Vote:* Reply with number (1-${options.length})\n`
+    msg += `┗━━━━━━━━━━━━━━━━━━━━┛`
+    
+    await m.send(msg)
+  } catch (e) {
+    console.log("cmd error", e)
+    return await m.sendErr(e)
+  }
+})
+
+kord({ cmd: "vote",
+  desc: "vote in active poll",
+  type: "group",
+  fromMe: false,
+  gc: true,
+}, async (m, text) => {
+  try {
+    const poll = activePolls.get(m.chat)
+    if (!poll) {
+      return await m.send("_No active poll in this group_")
+    }
+    
+    const choice = parseInt(text)
+    if (!choice || choice < 1 || choice > poll.options.length) {
+      return await m.send(`_Invalid choice. Vote 1-${poll.options.length}_`)
+    }
+    
+    poll.votes.set(m.sender, choice - 1)
+    
+    await m.send(`✓ Vote recorded: *${poll.options[choice - 1]}*`)
+  } catch (e) {
+    console.log("cmd error", e)
+    return await m.sendErr(e)
+  }
+})
+
+kord({ cmd: "pollresults|endpoll",
+  desc: "show poll results",
+  type: "group",
+  fromMe: wtype,
+  gc: true,
+  adminOnly: true,
+}, async (m, text) => {
+  try {
+    const poll = activePolls.get(m.chat)
+    if (!poll) {
+      return await m.send("_No active poll in this group_")
+    }
+    
+    const results = new Array(poll.options.length).fill(0)
+    poll.votes.forEach(vote => results[vote]++)
+    
+    let msg = `┏━━『 *POLL RESULTS* 』━━┓\n`
+    msg += `┃ *Question:* ${poll.question}\n`
+    msg += `┃ *Total Votes:* ${poll.votes.size}\n`
+    msg += `┣━━━━━━━━━━━━━━━━━━━━\n`
+    
+    poll.options.forEach((opt, i) => {
+      const votes = results[i]
+      const percentage = poll.votes.size > 0 ? ((votes / poll.votes.size) * 100).toFixed(1) : 0
+      const bar = '▰'.repeat(Math.floor(percentage / 10)) + '▱'.repeat(10 - Math.floor(percentage / 10))
+      msg += `┃ ${i + 1}. ${opt}\n`
+      msg += `┃    ${bar} ${percentage}% (${votes} votes)\n`
+    })
+    
+    msg += `┗━━━━━━━━━━━━━━━━━━━━┛`
+    
+    await m.send(msg)
+    
+    if (text === "end") {
+      activePolls.delete(m.chat)
+      await m.send("_Poll ended_")
+    }
+  } catch (e) {
+    console.log("cmd error", e)
+    return await m.sendErr(e)
+  }
+})
+
+// ============== GROUP RULES ==============
+
+kord({ cmd: "rules",
+  desc: "set or view group rules",
+  type: "group",
+  fromMe: wtype,
+  gc: true,
+}, async (m, text, cmd) => {
+  try {
+    var rulesData = await getData("group_rules") || {}
+    
+    if (!text) {
+      const rules = rulesData[m.chat]
+      if (!rules) {
+        return await m.send("_No rules set for this group_")
+      }
+      
+      let msg = `┏━━『 *GROUP RULES* 』━━┓\n`
+      msg += rules
+      msg += `\n┗━━━━━━━━━━━━━━━━━━━━┛`
+      
+      return await m.send(msg)
+    }
+    
+    if (!await isAdmin(m)) {
+      return await m.send("_Only admins can set rules_")
+    }
+    
+    if (text.toLowerCase() === "clear") {
+      delete rulesData[m.chat]
+      await storeData("group_rules", rulesData)
+      return await m.send("✓ Rules cleared")
+    }
+    
+    rulesData[m.chat] = text
+    await storeData("group_rules", rulesData)
+    
+    await m.send("✓ Rules updated")
+  } catch (e) {
+    console.log("cmd error", e)
+    return await m.sendErr(e)
+  }
+})
+
+// ============== DISAPPEARING MESSAGES ==============
+
+kord({ cmd: "disappear",
+  desc: "enable disappearing messages",
+  type: "group",
+  fromMe: wtype,
+  gc: true,
+  adminOnly: true,
+}, async (m, text) => {
+  try {
+    var botAd = await isBotAdmin(m)
+    if (!botAd) return await m.send("_*✘Bot Needs To Be Admin!*_")
+    
+    const durations = {
+      '24h': 86400,
+      '7d': 604800,
+      '90d': 7776000,
+      'off': 0
+    }
+    
+    const duration = durations[text?.toLowerCase()]
+    
+    if (duration === undefined) {
+      return await m.send("_Usage: disappear 24h/7d/90d/off_")
+    }
+    
+    await m.client.sendMessage(m.chat, {
+      disappearingMessagesInChat: duration
+    })
+    
+    if (duration === 0) {
+      return await m.send("✓ Disappearing messages disabled")
+    }
+    
+    return await m.send(`✓ Disappearing messages set to ${text}`)
+  } catch (e) {
+    console.log("cmd error", e)
+    return await m.sendErr(e)
+  }
+})
+
+// ============== LOCK MEDIA ==============
+
+kord({ cmd: "lockmedia",
+  desc: "only admins can send media",
+  type: "group",
+  fromMe: wtype,
+  gc: true,
+  adminOnly: true,
+}, async (m, text) => {
+  try {
+    var botAd = await isBotAdmin(m)
+    if (!botAd) return await m.send("_*✘Bot Needs To Be Admin!*_")
+    
+    var data = await getData("lockmedia") || {}
+    
+    if (text === "off") {
+      data[m.chat] = false
+      await storeData("lockmedia", data)
+      return await m.send("✓ Media lock disabled")
+    }
+    
+    data[m.chat] = true
+    await storeData("lockmedia", data)
+    return await m.send("✓ Media locked - only admins can send media")
+  } catch (e) {
+    console.log("cmd error", e)
+    return await m.sendErr(e)
+  }
+})
+
+// Media lock handler
+kord({ on: "all" }, async (m, text) => {
+  try {
+    if (!m.isGroup) return
+    if (await isAdmin(m)) return
+    if (!await isBotAdmin(m)) return
+    
+    var data = await getData("lockmedia") || {}
+    if (!data[m.chat]) return
+    
+    const hasMedia = m.message?.imageMessage || 
+                     m.message?.videoMessage || 
+                     m.message?.audioMessage || 
+                     m.message?.documentMessage ||
+                     m.message?.stickerMessage
+    
+    if (hasMedia) {
+      await m.send(m, {}, "delete")
+      await m.send("_*Media locked - only admins can send media*_")
+    }
+  } catch (e) {
+    console.log("lockmedia error", e)
+  }
+})
+
+// ============== ANNOUNCE ==============
+
+kord({ cmd: "announce",
+  desc: "send announcement to all members",
+  type: "group",
+  fromMe: wtype,
+  gc: true,
+  adminOnly: true,
+}, async (m, text) => {
+  try {
+    if (!text && !m.quoted) {
+      return await m.send("_Provide announcement text or reply to a message_")
+    }
+    
+    const message = text || m.quoted?.text
+    const { participants } = await m.client.groupMetadata(m.chat)
+    
+    let msg = `┏━━『 *ANNOUNCEMENT* 』━━┓\n`
+    msg += `${message}\n`
+    msg += `┗━━━━━━━━━━━━━━━━━━━━┛`
+    
+    await m.send(msg, { mentions: participants.map(a => a.jid) })
+  } catch (e) {
+    console.log("cmd error", e)
+    return await m.sendErr(e)
+  }
+})

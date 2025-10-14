@@ -1,16 +1,8 @@
-/* 
- * Copyright © 2025 Mirage
- * This file is part of Kord and is licensed under the GNU GPLv3.
- * And I hope you know what you're doing here.
- * You may not use this file except in compliance with the License.
- * See the LICENSE file or https://www.gnu.org/licenses/gpl-3.0.html
- * -------------------------------------------------------------------------------
- */
-
 const os = require("os")
 const { changeFont } = require("../core")
 const { prefix, kord, wtype, secondsToHms, config, commands } = require("../core")
 const { version } = require("../package.json")
+
 
 const format = (bytes) => {
   const sizes = ["B", "KB", "MB", "GB"]
@@ -19,6 +11,7 @@ const format = (bytes) => {
   return parseFloat((bytes / Math.pow(1024, i)).toFixed(1)) + " " + sizes[i]
 }
 
+
 function clockString(ms) {
   let h = isNaN(ms) ? "--" : Math.floor(ms / 3600000)
   let m = isNaN(ms) ? "--" : Math.floor(ms % 3600000 / 60000)
@@ -26,9 +19,11 @@ function clockString(ms) {
   return [h, m, s].map(v => v.toString().padStart(2, 0)).join(":")
 }
 
+
 const getRandomFont = () => {
   return "sansItalic"
 }
+
 
 kord({
   cmd: "menu|help",
@@ -47,6 +42,7 @@ kord({
       types[cat].push(main)
     })
 
+
     const requestedType = m.text ? m.text.toLowerCase().trim() : null
     const availableTypes = Object.keys(types).map(t => t.toLowerCase())
     
@@ -58,89 +54,104 @@ kord({
       
       const at = await changeFont(actualType.toUpperCase(), "monospace")
       const cmdList = types[actualType].map(cmd => 
-        `│ ${prefix}${cmd.replace(/[^a-zA-Z0-9-+]/g, "")}`
+        `  𖢹 ${prefix}${cmd.replace(/[^a-zA-Z0-9-+]/g, "")}`
       ).join('\n')
       const formattedCmds = await changeFont(cmdList, getRandomFont())
       
-      let menu = `\`\`\`┌────═━┈ ${config().BOT_NAME} ┈━═────┐
- ✇ ▸ Category: ${actualType.toUpperCase()}
- ✇ ▸ Commands: ${types[actualType].length}
- ✇ ▸ Prefix: ${prefix}
-└──────═━┈┈━═──────┘\`\`\`
+      let menu = `\`\`\`
+╔═══════════════════════════════════════╗
+║  ✦ ⚡ ☆࿐ཽ༵༆༒ 𝑪𝒐𝒅𝒆𝒙 ༒༆࿐ཽ༵☆ ⚡ ✦
+║        👑 𝑶𝒘𝒏𝒆𝒓: 𝑪𝒐𝒅𝒆𝒙 👑
+╚═══════════════════════════════════════╝
+
+  ◛ ﹏ ✧･ﾟ: *✧･ﾟ:* ⚜️ *:ﾟ✧*:ﾟ✧ ◛ ﹏
+
+┌─⊱ 𒂝 ${actualType.toUpperCase()} 𒂝 ⊰─┐
+│  𖢶 ᴄᴀᴛᴇɢᴏʀʏ : ${actualType.toUpperCase()}
+│  𖢶 ᴄᴏᴜɴᴛ : ${types[actualType].length}
+│  𖢶 ᴘʀᴇꜰɪx : ${prefix}
+└─────────────────────┘
+
 ${readmore}
+╭─━━━━━━━━━━━━━━━━━━━━━━━━━━━╮
+│   ⨻ 🜔 𝑮𝑳𝑨𝑻𝑰𝑵𝑮 𝑪𝑶𝑴𝑴𝑨𝑵𝑫𝑺 🜔 ⨻
+╰─━━━━━━━━━━━━━━━━━━━━━━━━━━━╯
 
-     ┏ ${at} ┓ 
-┍   ─┉─ • ─┉─    ┑ 
 ${formattedCmds}
-┕    ─┉─ • ─┉─   ┙ 
 
-Tip: Use ${prefix}menu to see all categories`
+╰─━━━━━━━━━━━━━━━━━━━━━━━━━━━╯
+    ༺ 𝐏𝐨𝐰𝐞𝐫𝐞𝐝 𝐛𝐲 𝐂𝐨𝐝𝐞𝐱 ༻
+  ◛ ᰔᩚ 𓃗 𝘗𝘦𝘢𝘬𝘊𝘢𝘪𝘱𝘐𝘯𝘵𝘦𝘯𝘴𝘦 𓃗 ᰔᩚ ◛\`\`\``
       
-      const bodyContent = `     ┏ ${at} ┓ 
-┍   ─┉─ • ─┉─    ┑ 
-${formattedCmds}
-┕    ─┉─ • ─┉─   ┙ 
-
-Tip: Use ${prefix}menu to see all categories`
-      
-      const styledBody = await changeFont(bodyContent, getRandomFont())
-      const final = `\`\`\`┌────═━┈ ${config().BOT_NAME} ┈━═────┐
- ✇ ▸ Category: ${actualType.toUpperCase()}
- ✇ ▸ Commands: ${types[actualType].length}
- ✇ ▸ Prefix: ${prefix}
-└────────═━┈┈━═────────┘\`\`\`
-${readmore}
-
-${styledBody}`
-      return m.send(final)
+      return await m.reply(menu)
     }
-    
-    const date = new Date().toLocaleDateString()
-    const time = new Date().toLocaleTimeString()
-    const uptime = await secondsToHms(process.uptime())
-    const memoryUsage = format(os.totalmem() - os.freemem())
-    
-    let menu = `\`\`\`┌────═━┈ ${config().BOT_NAME} ┈━═────┐
- ✇ ▸ Owner: ${config().OWNER_NAME}
- ✇ ▸ User: ${m.pushName}
- ✇ ▸ Plugins: ${commands.length}
- ✇ ▸ Uptime: ${uptime}
- ✇ ▸ Memory: ${memoryUsage}
- ✇ ▸ Version: v${version}
- ✇ ▸ Platform: ${m.client.platform()}
-└───────═━┈┈━═──────┘\`\`\`
+
+
+    const allmenu = Object.keys(types).map(type => {
+      const at = type.toUpperCase()
+      const cmdList = types[type].map(cmd => `${prefix}${cmd}`).join(", ")
+      return `┌─⊱ 𒂝 *${at}* 𒂝 ⊰─┐\n│ ${cmdList}\n└──────────┘`
+    }).join("\n\n")
+    const formattedAll = await changeFont(allmenu, getRandomFont())
+
+
+    let uptime = clockString(process.uptime() * 1000)
+    let timestamp = new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" })
+
+
+    let menu = `\`\`\`
+╔═══════════════════════════════════════╗
+║  ✦ ⚡ ☆࿐ཽ༵༆༒ 𝑪𝒐𝒅𝒆𝒙 ༒༆࿐ཽ༵☆ ⚡ ✦
+║        👑 𝑶𝒘𝒏𝒆𝒓: 𝘬𝘰𝘳𝘥 👑
+╚═══════════════════════════════════════╝
+
+  ◛ ﹏ ✧･ﾟ: *✧･ﾟ:* ⚜️ *:ﾟ✧*:ﾟ✧ ◛ ﹏
+
+┌─⊱ 𒂝 𝐈𝐍𝐅𝐎𝐑𝐌𝐀𝐓𝐈𝐎𝐍 𒂝 ⊰─┐
+│  𖢹 ᴠᴇʀsɪᴏɴ : ${version}
+│  𖢹 ᴜᴘᴛɪᴍᴇ : ${uptime}
+│  𖢹 ᴘʟᴀᴛꜰᴏʀᴍ : ${os.platform()}
+│  𖢹 ᴍᴇᴍᴏʀʏ : ${format(os.totalmem() - os.freemem())}/${format(os.totalmem())}
+│  𖢹 ᴛɪᴍᴇ : ${timestamp}
+│  𖢹 ᴘʀᴇꜰɪx : ${prefix}
+└──────────────────────────┘
+
 ${readmore}
+╭─━━━━━━━━━━━━━━━━━━━━━━━━━━━╮
+│  ⨻ 🜔 𝐀𝐋𝐋 𝐂𝐀𝐓𝐄𝐆𝐎𝐑𝐈𝐄𝐒 🜔 ⨻
+╰─━━━━━━━━━━━━━━━━━━━━━━━━━━━╯
 
-`
+${Object.keys(types).map((type, i) => 
+  `  𖢶 ${i + 1}. ${type.toUpperCase()} ◛ 〔${types[type].length}〕`
+).join('\n')}
 
-    const categoryList = Object.keys(types).map(async (type) => {
-      const cmdList = types[type].map(cmd => 
-        `│ ${prefix}${cmd.replace(/[^a-zA-Z0-9-+]/g, "")}`
-      ).join('\n')
-      const formattedCmds = await changeFont(cmdList, getRandomFont())
-      const tty = await changeFont(type.toUpperCase(), "monospace")
-      
-      return ` ┏ ${tty} ┓
-┍   ─┉─ • ─┉─    ┑ 
-${formattedCmds}
-┕    ─┉─ • ─┉─   ┙ `
-    })
+╭─━━━━━━━━━━━━━━━━━━━━━━━━━━━╮
+│   𓃗 𝘏𝘖𝘞 𝘛𝘖 𝘜𝘚𝘌 𝘗𝘳𝘰𝘱𝘦𝘳𝘭𝘺 𓃗
+╰─━━━━━━━━━━━━━━━━━━━━━━━━━━━╯
 
-    const resolvedCategoryList = await Promise.all(categoryList)
-    menu += resolvedCategoryList.join('\n\n')
+  𖢹 ${prefix}menu [category]
+  𖢹 ${prefix}menu media
+  𖢹 ${prefix}menu help
+  𖢹 𝐒𝐞𝐞 𝐚𝐥𝐥 𝐜𝐚𝐭𝐞𝐠𝐨𝐫𝐢𝐞𝐬 𝐚𝐛𝐨𝐯𝐞
+  𖢹 𝐄𝐚𝐜𝐡 𝐜𝐨𝐦𝐦𝐚𝐧𝐝 𝐫𝐞𝐯𝐞𝐚𝐥𝐬 𝐢𝐭𝐬 𝐥𝐚𝐘𝐞𝐫
+
+${readmore}
+╭─━━━━━━━━━━━━━━━━━━━━━━━━━━━╮
+│  ⚜️ 🜔 𝐆𝐀𝐋𝐀𝐂𝐓𝐈𝐂 𝐂𝐎𝐌𝐌𝐀𝐍𝐃𝐒 🜔 ⚜️
+╰─━━━━━━━━━━━━━━━━━━━━━━━━━━━╯
+
+${formattedAll}
+
+╭─━━━━━━━━━━━━━━━━━━━━━━━━━━━╮
+│     ༺ 𝐄𝐌𝐏𝐎𝐖𝐄𝐑𝐄𝐃 ༻
+│   ☆࿐ཽ༵༆༒ 𝑪𝒐𝒅𝒆𝒙 ༒༆࿐ཽ༵☆
+│  ◛ ᰔᩚ 𓃗 𝘕𝘟𝘛-𝘎𝘌𝘕 𝘙𝘌𝘍𝘐𝘕𝘌𝘋 𓃗 ᰔᩚ ◛
+╰─━━━━━━━━━━━━━━━━━━━━━━━━━━━╯\`\`\``
 
 
-    menu += `\n\nTip: Use ${prefix}menu [category] for specific commands`
-
-    const final = menu.trim()
- try {
-  if (config().MENU_IMAGE)
-    return m.send(config().MENU_IMAGE, { caption: final }, "image")
-   } catch (e) {}
-
-   return m.send(final)
+    await m.reply(menu)
   } catch (e) {
-    console.log("cmd error", e)
-    return await m.sendErr(e)
+    console.error(e)
+    await m.reply("Error generating menu")
   }
 })

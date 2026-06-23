@@ -3506,67 +3506,72 @@ kord({
     if (!adm) return await m.send(`_Admins only._`)
 
     const botAdmin = await isBotAdmin(m)
-    if (!botAdmin) return await m.send(`🛡️ _I need to be a group admin to delete messages from other members._`)
+    if (!botAdmin) return await m.send(`_I need to be group admin to delete others' messages._`)
 
-    if (bdRunning.has(m.chat)) return await m.send(`⏳ _A bulk delete is already in progress here. Wait for it to finish._`)
+    if (bdRunning.has(m.chat)) return await m.send(`⏳ A bulk delete is already running...`)
 
     const lastRun = bdCooldowns.get(m.chat) || 0
-    const sinceLastRun = Date.now() - lastRun
-    if (sinceLastRun < BD.COOLDOWN_MS) {
-      const wait = Math.ceil((BD.COOLDOWN_MS - sinceLastRun) / 1000)
-      return await m.send(`⏱️ _Cooldown active. Wait ${wait}s before running another bulk delete._\n_(this protects the account from WhatsApp's spam-detection)_`)
+    if (Date.now() - lastRun < BD.COOLDOWN_MS) {
+      const wait = Math.ceil((BD.COOLDOWN_MS - (Date.now() - lastRun)) / 1000)
+      return await m.send(`⏱️ Cooldown active. Wait ${wait}s.`)
     }
 
-    // ── Parse args: [count] [@user optional] ──
-    const target = m.mentionedJid?.[0] || m.quoted?.sender || null
-    const numMatch = text?.match(/\d+/)
-    let count = numMatch ? parseInt(numMatch[0]) : 20
+    // Parse target and count
+    let target = null
+    let count = 20
 
-    if (isNaN(count) || count <= 0) count = 20
-    if (count > BD.MAX_PER_CALL) {
-      return await m.send(
-        `⚠️ _Max allowed per call is ${BD.MAX_PER_CALL}._\n` +
-        `_This limit exists to protect your account from WhatsApp's anti-spam systems — deleting too many messages too fast can get an account flagged or temp-banned._\n\n` +
-        `_Run the command again after this batch completes if you need more deleted._`
-      )
+    const mentioned = m.mentionedJid?.[0]
+    if (mentioned) target = mentioned
+    else if (text.includes('@')) {
+      const num = text.match(/@(\d+)/)?.[1]
+      if (num) target = num + '@s.whatsapp.net'
     }
+
+    const numMatch = text.match(/\b(\d+)\b/)
+    if (numMatch) count = parseInt(numMatch[1])
+
+    if (count > BD.MAX_PER_CALL) count = BD.MAX_PER_CALL
+    if (count < 1) count = 20
 
     await m.send(
-      `🗑️ _Starting bulk delete..._\n` +
-      `_Target: ${target ? "@" + target.split("@")[0] + "'s messages" : "recent messages"}_\n` +
-      `_Requested: ${count}_\n` +
-      `_This will take a moment — deletions are throttled to avoid triggering WhatsApp's spam protection._`,
+      `🗑️ *Starting bulk delete...*\n` +
+      `Target: ${target ? "@" + target.split('@')[0] : "All recent"}\n` +
+      `Requested: ${count}\n` +
+      `Throttled to avoid spam flags.`,
       target ? { mentions: [target] } : {}
     )
 
     bdRunning.add(m.chat)
 
-    // ── Fetch enough history to find `count` matching, deletable messages ──
-    const fetchLimit = count * BD.HISTORY_FETCH_MULTIPLIER + 50
+    const fetchLimit = Math.min(500, count * BD.HISTORY_FETCH_MULTIPLIER + 100)
     const rows = await store.chatHistory(m.chat, fetchLimit)
 
-    if (!rows || !rows.length) {
+    if (!rows?.length) {
       bdRunning.delete(m.chat)
-      return await m.send(`_No message history found for this chat._`)
+      return await m.send("_No history found._")
     }
 
-    // Parse + filter candidates (most recent first)
     const candidates = []
+
     for (let i = rows.length - 1; i >= 0 && candidates.length < count; i--) {
-      let parsed
-      try { parsed = JSON.parse(rows[i].message) } catch { continue }
-      const key = parsed.key
-      if (!key) continue
-      if (key.remoteJid !== m.chat) continue
-      // Skip the command message itself / reaction-only / already revoked
-      if (parsed.message?.protocolMessage) continue
-      // Filter by target sender if specified
-      const senderJid = key.fromMe ? null : (key.participant || key.remoteJid)
-      if (target) {
-        const senderNum = senderJid?.split("@")[0]
-        if (senderNum !== target.split("@")[0]) continue
-      }
-      candidates.push(key)
+      try {
+        const parsed = JSON.parse(rows[i].message)
+        const key = parsed.key
+        if (!key || key.remoteJid !== m.chat) continue
+
+        // Skip protocol messages, revokes, etc.
+        if (parsed.message?.protocolMessage || parsed.message?.reactionMessage) continue
+
+        const senderJid = key.participant || key.remoteJid || key.fromMe ? m.user.jid : null
+
+        if (target) {
+          const cleanTarget = target.replace('@s.whatsapp.net', '')
+          const cleanSender = (senderJid || '').replace('@s.whatsapp.net', '')
+          if (cleanSender !== cleanTarget) continue
+        }
+
+        candidates.push(key)
+      } catch (_) { continue }
     }
 
     if (!candidates.length) {
@@ -3574,41 +3579,28 @@ kord({
       return await m.send(`_No matching messages found to delete._`)
     }
 
-    // ── Throttled batch deletion ──
-    let deletedCount = 0
-    let failedCount = 0
-
+    // Throttled deletion
+    let deleted = 0
     for (let i = 0; i < candidates.length; i += BD.BATCH_SIZE) {
       const batch = candidates.slice(i, i + BD.BATCH_SIZE)
       for (const key of batch) {
         try {
           await m.client.sendMessage(m.chat, { delete: key })
-          deletedCount++
-        } catch (_) {
-          failedCount++
-        }
+          deleted++
+        } catch (_) {}
         await bdSleep(BD.ITEM_DELAY_MS)
       }
-      // Pause between batches — this is the main throttle protecting the account
-      if (i + BD.BATCH_SIZE < candidates.length) {
-        await bdSleep(BD.BATCH_DELAY_MS)
-      }
+      if (i + BD.BATCH_SIZE < candidates.length) await bdSleep(BD.BATCH_DELAY_MS)
     }
 
     bdRunning.delete(m.chat)
     bdCooldowns.set(m.chat, Date.now())
 
-    return await m.client.sendMessage(m.chat, {
-      text:
-        `✅ *Bulk Delete Complete*\n\n` +
-        `Deleted:  ${deletedCount}\n` +
-        (failedCount ? `Failed:   ${failedCount} (too old to revoke, or already gone)\n` : ``) +
-        `\n_Note: WhatsApp blocks revoking messages older than a certain window (varies by account/region) — those will show as "failed" above._`
-    })
+    await m.send(`✅ *Bulk delete finished*\nDeleted: \( {deleted}/ \){candidates.length}`)
 
   } catch (e) {
     bdRunning.delete(m.chat)
-    console.log("bulkdelete error", e)
+    console.log("bulkdel error", e)
     return await m.sendErr(e)
   }
 })

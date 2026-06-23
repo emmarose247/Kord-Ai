@@ -2975,3 +2975,640 @@ kord({
     return await m.sendErr(e)
   }
 })
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/*
+ * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ *  🛡️ ANTI-BUG / CRASH PROTECTION SYSTEM
+ * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ * Detects malformed messages designed to crash WhatsApp
+ * (Android/iOS parsing exploits, mention floods, broken
+ * vCards, malformed catalog/product messages, oversized
+ * payloads, corrupted protocol structures, etc.)
+ *
+ * Works in BOTH groups and private chats (inbox).
+ * Paste this block at the bottom of cmds/group.js
+ *
+ * No new imports needed — this uses kord, wtype, prefix/pre,
+ * getData, storeData, isAdmin, isBotAdmin — all of which
+ * group.js already imports and uses elsewhere in the file.
+ */
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  CONFIG / THRESHOLDS
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+const AB = {
+  MENTION_FLOOD_LIMIT: 50,          // mentionedJid array length that's suspicious
+  VCARD_SIZE_LIMIT: 6000,           // chars - legit vcards are short
+  TEXT_FLOOD_LIMIT: 100000,         // chars - raised to avoid flagging legit long articles/logs
+  ZERO_WIDTH_LIMIT: 500,            // repeated zero-width/invisible chars
+  SPAM_WINDOW_MS: 15000,            // window to detect repeated-send spam
+  SPAM_COUNT_TRIGGER: 5,            // how many bug-flagged msgs in window = repeat offender
+  OFFENDER_COOLDOWN_MS: 10 * 60 * 1000, // how long an offender stays flagged
+}
+
+// Zero-width / invisible / RTL override characters commonly used in bug payloads
+const ZW_REGEX = /[\u200B\u200C\u200D\u200E\u200F\u202A\u202B\u202C\u202D\u202E\uFEFF\u2060\u2061\u2062\u2063\u2064]/g
+
+// In-memory trackers (per chat+sender)
+const abOffenders = new Map()   // "chat_sender" -> { count, firstSeen, flaggedUntil }
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  ANTIBUG ENABLE/DISABLE STORAGE
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+async function abGetConfig() {
+  return (await getData("antibug")) || { groups: [], inboxEnabled: false, autoKick: false }
+}
+async function abSaveConfig(cfg) {
+  await storeData("antibug", cfg)
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  DETECTION ENGINE
+//  Returns { bugged: bool, reason: string, severity: "low"|"high" } 
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function detectBug(m) {
+  try {
+    const msg = m.message
+    if (!msg) return { bugged: false }
+
+    // ── 0. MULTI-TYPE PAYLOAD (generic catch-all for unknown/future exploits) ──
+    // A normal WA message has exactly ONE real content-type key.
+    // Bug payloads sometimes stuff 2+ conflicting type keys into one envelope
+    // to confuse different client parsers. This catches NEW exploits we
+    // haven't seen yet without needing to know their specifics.
+    const NON_CONTENT_KEYS = new Set([
+      "messageContextInfo", "deviceSentMessage", "senderKeyDistributionMessage",
+      "messageStubParameters"
+    ])
+    const contentKeys = Object.keys(msg).filter(k => !NON_CONTENT_KEYS.has(k))
+    if (contentKeys.length > 2) {
+      return { bugged: true, reason: "Multi-type payload (conflicting message structures in one envelope)", severity: "high" }
+    }
+
+    // ── 1. MENTION FLOOD ──
+    const ctx = msg[m.mtype]?.contextInfo || msg.extendedTextMessage?.contextInfo
+    const mentioned = ctx?.mentionedJid || m.mentionedJid || []
+    if (mentioned.length > AB.MENTION_FLOOD_LIMIT) {
+      return { bugged: true, reason: "Mention flood (mass-tag crash payload)", severity: "high" }
+    }
+
+    // ── 2. MALFORMED CONTACT / VCARD ──
+    const contact = msg.contactMessage
+    const contactsArr = msg.contactsArrayMessage
+    if (contact?.vcard && contact.vcard.length > AB.VCARD_SIZE_LIMIT) {
+      return { bugged: true, reason: "Oversized/malformed vCard payload", severity: "high" }
+    }
+    if (contactsArr) {
+      const contacts = contactsArr.contacts || []
+      const totalSize = contacts.reduce((s, c) => s + (c.vcard?.length || 0), 0)
+      if (contacts.length > 50 || totalSize > AB.VCARD_SIZE_LIMIT * 3) {
+        return { bugged: true, reason: "Malformed contact array (bulk vCard crash)", severity: "high" }
+      }
+    }
+
+    // ── 3. PRODUCT / CATALOG MESSAGE EXPLOITS ──
+    // Tightened to reduce false positives on legit simple ad-replies/catalogs:
+    // only flags when the structure is essentially an empty husk wearing a
+    // media flag — real catalog cards always carry at least a title or thumbnail.
+    const product = msg.productMessage
+    if (product) {
+      const hasCatalog = product.catalog || product.product
+      const ext = product.contextInfo?.externalAdReply
+      if (ext?.mediaType && !ext.title && !ext.thumbnailUrl && !ext.thumbnail && !ext.sourceUrl) {
+        return { bugged: true, reason: "Malformed catalog/product card (empty ad-reply husk)", severity: "high" }
+      }
+      if (!hasCatalog && !product.title && !product.productImage) {
+        return { bugged: true, reason: "Malformed product message (no catalog or product data at all)", severity: "high" }
+      }
+    }
+
+    // ── 4. BROKEN EXTERNAL AD REPLY (standalone, not just products) ──
+    const adReply = ctx?.externalAdReply
+    if (adReply) {
+      const fieldsPresent = [adReply.title, adReply.body, adReply.thumbnailUrl, adReply.thumbnail, adReply.sourceUrl].filter(Boolean).length
+      if (adReply.mediaType && fieldsPresent === 0) {
+        return { bugged: true, reason: "Corrupted ad-reply card (empty payload, media flag set)", severity: "high" }
+      }
+    }
+
+    // ── 5. BROKEN VIEW-ONCE WRAPPERS ──
+    const vo = msg.viewOnceMessageV2 || msg.viewOnceMessageV2Extension || msg.viewOnceMessage
+    if (vo) {
+      const inner = vo.message
+      if (!inner || Object.keys(inner).length === 0) {
+        return { bugged: true, reason: "Empty/broken view-once wrapper", severity: "high" }
+      }
+    }
+
+    // ── 6. TEXT FLOOD — refined to avoid false positives on long legit text ──
+    // Real articles/logs can be long but rarely contain extreme single-character
+    // repetition. We check repetition density instead of raw length alone.
+    const text = msg.conversation || msg.extendedTextMessage?.text || ""
+    if (text.length > AB.TEXT_FLOOD_LIMIT) {
+      return { bugged: true, reason: "Oversized text payload (render-lag/crash attempt)", severity: "high" }
+    }
+    // Repeated single-character flood (e.g. same emoji/char thousands of times)
+    const repeatMatch = text.match(/(.)\1{1999,}/)
+    if (repeatMatch) {
+      return { bugged: true, reason: "Repeated-character flood (render-freeze payload)", severity: "high" }
+    }
+
+    // ── 7. ZERO-WIDTH / INVISIBLE CHARACTER FLOOD ──
+    const zwMatches = text.match(ZW_REGEX)
+    if (zwMatches && zwMatches.length > AB.ZERO_WIDTH_LIMIT) {
+      return { bugged: true, reason: "Invisible character flood (render-freeze payload)", severity: "high" }
+    }
+
+    // ── 8. BROKEN LOCATION / LIVE LOCATION ──
+    const loc = msg.locationMessage || msg.liveLocationMessage
+    if (loc) {
+      const lat = loc.degreesLatitude, lng = loc.degreesLongitude
+      const invalid = (lat === 0 && lng === 0) ||
+        Math.abs(lat) > 90 || Math.abs(lng) > 180 ||
+        (typeof lat !== "number") || (typeof lng !== "number")
+      if (invalid) {
+        return { bugged: true, reason: "Corrupted location payload (invalid coordinates)", severity: "low" }
+      }
+    }
+
+    // ── 9. STICKER PACK / BUTTONS MESSAGE ABUSE ──
+    const buttons = msg.buttonsMessage || msg.templateMessage || msg.listMessage || msg.interactiveMessage
+    if (buttons) {
+      const hasContent = buttons.contentText || buttons.text || buttons.title || buttons.body
+      if (!hasContent) {
+        return { bugged: true, reason: "Malformed interactive/buttons message (empty content)", severity: "high" }
+      }
+    }
+
+    // ── 10. GROUP INVITE MESSAGE ABUSE ──
+    const invite = msg.groupInviteMessage
+    if (invite) {
+      if (!invite.groupJid || !invite.inviteCode) {
+        return { bugged: true, reason: "Malformed group invite payload", severity: "low" }
+      }
+    }
+
+    // ── 11. STICKER WITH BROKEN METADATA (Android-specific freeze vector) ──
+    const sticker = msg.stickerMessage
+    if (sticker) {
+      if (sticker.pngThumbnail && sticker.pngThumbnail.length > 500000) {
+        return { bugged: true, reason: "Oversized sticker thumbnail (Android render-lag)", severity: "low" }
+      }
+    }
+
+    // ── 12. DOCUMENT WITH CAPTION ANOMALIES ──
+    const docCap = msg.documentWithCaptionMessage
+    if (docCap) {
+      const inner = docCap.message?.documentMessage
+      if (!inner) {
+        return { bugged: true, reason: "Malformed document-with-caption wrapper (no document inside)", severity: "high" }
+      }
+      if (inner.fileName && inner.fileName.length > 1000) {
+        return { bugged: true, reason: "Document with abnormally long filename (render exploit)", severity: "low" }
+      }
+    }
+    const doc = msg.documentMessage
+    if (doc && doc.fileName && doc.fileName.length > 1000) {
+      return { bugged: true, reason: "Document with abnormally long filename (render exploit)", severity: "low" }
+    }
+
+    // ── 13. AUDIO / PTT DURATION OR WAVEFORM ANOMALIES ──
+    const audio = msg.audioMessage
+    if (audio) {
+      if (typeof audio.seconds === "number" && (audio.seconds < 0 || audio.seconds > 86400)) {
+        return { bugged: true, reason: "Audio/PTT with corrupted duration value", severity: "low" }
+      }
+      if (audio.waveform && audio.waveform.length > 5000) {
+        return { bugged: true, reason: "Audio message with oversized waveform data", severity: "low" }
+      }
+    }
+
+    // ── 14. POLL FLOOD / MALFORMED POLLS ──
+    const poll = msg.pollCreationMessage || msg.pollCreationMessageV2 || msg.pollCreationMessageV3
+    if (poll) {
+      const opts = poll.options || []
+      // WhatsApp's own UI caps polls at 12 options — anything well beyond that is forged
+      if (opts.length > 12) {
+        return { bugged: true, reason: "Poll with abnormal option count (forged poll payload)", severity: "low" }
+      }
+      if (poll.name && poll.name.length > 3000) {
+        return { bugged: true, reason: "Poll with oversized question text", severity: "low" }
+      }
+    }
+
+    // ── 15. DEEPLY NESTED / RECURSIVE QUOTED MESSAGES ──
+    // Some crash payloads chain quoted-message-within-quoted-message many
+    // levels deep to blow render recursion limits.
+    let depth = 0
+    let cursor = ctx
+    while (cursor?.quotedMessage && depth < 25) {
+      depth++
+      const qm = cursor.quotedMessage
+      const nextCtx = qm[Object.keys(qm)[0]]?.contextInfo
+      if (!nextCtx) break
+      cursor = nextCtx
+    }
+    if (depth >= 8) {
+      return { bugged: true, reason: "Deeply nested/recursive quoted-message chain (recursion-limit exploit)", severity: "high" }
+    }
+
+    return { bugged: false }
+  } catch (e) {
+    // If parsing itself throws, that's often a strong bug signal
+    return { bugged: true, reason: "Message structure caused a parsing exception", severity: "high" }
+  }
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  REACTION FLOOD / SPOOFED REACTION DETECTION
+//  Reactions don't carry normal content but can still be abused:
+//  - Spoofed reactions pointing at a different chat's message key
+//  - Rapid-fire reaction spam from one sender
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+const reactionTracker = new Map() // "chat_sender" -> { count, firstSeen }
+
+function detectReactionAbuse(m) {
+  const r = m.message?.reactionMessage
+  if (!r) return { bugged: false }
+
+  // Spoofed target — reaction's own key points to a different chat than this one
+  if (r.key?.remoteJid && r.key.remoteJid !== m.chat) {
+    return { bugged: true, reason: "Spoofed reaction (target message belongs to a different chat)", severity: "low" }
+  }
+
+  // Frequency flood check
+  const key = `${m.chat}_${m.sender}`
+  const now = Date.now()
+  let rec = reactionTracker.get(key)
+  if (!rec || now - rec.firstSeen > 10000) {
+    rec = { count: 1, firstSeen: now }
+  } else {
+    rec.count++
+  }
+  reactionTracker.set(key, rec)
+
+  if (rec.count > 25) {
+    return { bugged: true, reason: "Reaction spam flood (rapid repeated reactions)", severity: "low" }
+  }
+
+  return { bugged: false }
+}
+
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  OFFENDER TRACKING
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function trackOffender(key) {
+  const now = Date.now()
+  let rec = abOffenders.get(key)
+  if (!rec || now - rec.firstSeen > AB.SPAM_WINDOW_MS) {
+    rec = { count: 1, firstSeen: now }
+  } else {
+    rec.count++
+  }
+  abOffenders.set(key, rec)
+  return rec.count
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  ❶ TOGGLE — GROUPS
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+kord({ cmd: "antibug", desc: "Toggle anti-bug/crash protection", fromMe: wtype, type: "group" },
+async (m, text) => {
+  try {
+    const cfg = await abGetConfig()
+    const t = text?.toLowerCase()?.trim()
+
+    if (m.isGroup) {
+      const adm = await isAdmin(m)
+      if (!adm) return await m.send(`_Admins only._`)
+      if (t === "on") {
+        if (!cfg.groups.includes(m.chat)) cfg.groups.push(m.chat)
+        await abSaveConfig(cfg)
+        return await m.send(`🛡️ *Anti-Bug Protection Enabled*\n\n_This group is now protected against malformed/crash-inducing messages._\n_Use ${pre}antibug autokick on to enable auto-removal of repeat offenders._`)
+      }
+      if (t === "off") {
+        cfg.groups = cfg.groups.filter(c => c !== m.chat)
+        await abSaveConfig(cfg)
+        return await m.send(`🛡️ Anti-Bug Protection disabled for this group.`)
+      }
+      if (t === "autokick on") {
+        cfg.autoKick = true
+        await abSaveConfig(cfg)
+        return await m.send(`🛡️ Auto-kick enabled for repeat bug-message offenders.`)
+      }
+      if (t === "autokick off") {
+        cfg.autoKick = false
+        await abSaveConfig(cfg)
+        return await m.send(`🛡️ Auto-kick disabled. Messages will still be deleted + offender warned.`)
+      }
+      const active = cfg.groups.includes(m.chat)
+      return await m.send(
+        `🛡️ *Anti-Bug Protection*\n\n` +
+        `Status: ${active ? "✅ Active" : "❌ Inactive"}\n` +
+        `Auto-kick: ${cfg.autoKick ? "✅ On" : "❌ Off"}\n\n` +
+        `_${pre}antibug on/off — toggle protection_\n` +
+        `_${pre}antibug autokick on/off — toggle auto-removal_`
+      )
+    } else {
+      // Private chat toggle (per-user)
+      if (t === "on") {
+        cfg.inboxEnabled = true
+        await abSaveConfig(cfg)
+        return await m.send(`🛡️ *Anti-Bug Protection Enabled* for your inbox.\n_Malformed/crash-inducing messages sent to you will be auto-deleted._`)
+      }
+      if (t === "off") {
+        cfg.inboxEnabled = false
+        await abSaveConfig(cfg)
+        return await m.send(`🛡️ Anti-Bug Protection disabled for your inbox.`)
+      }
+      return await m.send(
+        `🛡️ *Anti-Bug Protection (Inbox)*\n\n` +
+        `Status: ${cfg.inboxEnabled ? "✅ Active" : "❌ Inactive"}\n\n` +
+        `_${pre}antibug on/off — toggle protection for your DMs_\n\n` +
+        `⚠️ _Note: this only protects messages sent to THIS bot session. It cannot protect your main WhatsApp account directly — for that, block + report the sender from within WhatsApp itself._`
+      )
+    }
+  } catch (e) {
+    console.log("antibug error", e)
+    return await m.sendErr(e)
+  }
+})
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  ❷ CORE LISTENER — runs on every incoming message
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+kord({ on: "all" }, async (m) => {
+  try {
+    if (m.fromMe) return
+    if (!m.message) return
+
+    const cfg = await abGetConfig()
+    const isGroupProtected = m.isGroup && cfg.groups.includes(m.chat)
+    const isInboxProtected = !m.isGroup && cfg.inboxEnabled
+    if (!isGroupProtected && !isInboxProtected) return
+
+    let result = detectBug(m)
+    if (!result.bugged && m.message.reactionMessage) {
+      result = detectReactionAbuse(m)
+    }
+    if (!result.bugged) return
+
+    const key = `${m.chat}_${m.sender}`
+    const offenseCount = trackOffender(key)
+
+    // ── Delete the message if we can ──
+    let deleted = false
+    try {
+      if (m.isGroup) {
+        const botAdmin = await isBotAdmin(m)
+        if (botAdmin) {
+          await m.client.sendMessage(m.chat, { delete: m.key })
+          deleted = true
+        }
+      } else {
+        // In private chat we can only delete messages we sent ourselves (fromMe).
+        // We cannot remotely delete a message someone else sent us.
+        deleted = false
+      }
+    } catch (_) {}
+
+    const senderTag = m.sender.split("@")[0]
+
+    // ── Low severity = quiet handling ──
+    // These cover edge cases that occasionally fire on legitimate content
+    // (long documents, big polls, odd location data, reaction spam). We still
+    // protect the chat (delete if possible) but skip the public callout to
+    // avoid disrupting normal conversation over a borderline case.
+    if (result.severity === "low") {
+      console.log(`[antibug] quiet-flag: ${result.reason} | sender: ${senderTag} | deleted: ${deleted}`)
+      return
+    }
+
+    // ── High severity = full notice ──
+    const notice =
+      `🛡️ *Anti-Bug Triggered*\n\n` +
+      `Sender:   @${senderTag}\n` +
+      `Reason:   ${result.reason}\n` +
+      `Action:   ${deleted ? "Message deleted ✅" : "Could not delete (bot not admin or private chat) ⚠️"}\n` +
+      `Offense#: ${offenseCount} (in this window)`
+
+    await m.client.sendMessage(m.chat, { text: notice, mentions: [m.sender] })
+
+    // ── Auto-kick repeat offenders (groups only) ──
+    if (m.isGroup && cfg.autoKick && offenseCount >= AB.SPAM_COUNT_TRIGGER) {
+      const botAdmin = await isBotAdmin(m)
+      if (botAdmin) {
+        try {
+          await m.client.groupParticipantsUpdate(m.chat, [m.sender], "remove")
+          await m.client.sendMessage(m.chat, {
+            text: `🛡️ @${senderTag} has been removed for repeatedly sending crash/bug payloads.`,
+            mentions: [m.sender]
+          })
+          abOffenders.delete(key)
+        } catch (_) {}
+      }
+    }
+
+  } catch (e) {
+    // Never let antibug itself crash the bot
+    console.log("antibug listener error", e)
+  }
+})
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/*
+ * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ *  🗑️ BULK DELETE / PURGE SYSTEM
+ * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ * Deletes a batch of recent messages in a group.
+ * Bot must be group admin (admins can delete ANY
+ * participant's message, not just their own).
+ *
+ * Includes throttling to avoid WhatsApp rate-limit /
+ * account-flag risk — mass rapid-fire delete actions
+ * are one of the things WA's anti-abuse systems watch for.
+ *
+ * Paste at the bottom of cmds/group.js
+ * No new imports needed — uses kord, wtype, pre, isAdmin,
+ * isBotAdmin already present in group.js.
+ */
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  CONFIG / SAFETY LIMITS
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+const BD = {
+  MAX_PER_CALL: 100,           // hard cap per command — protects the account
+  BATCH_SIZE: 5,               // delete in small batches
+  BATCH_DELAY_MS: 1800,        // delay between batches (throttle)
+  ITEM_DELAY_MS: 350,          // delay between each delete within a batch
+  COOLDOWN_MS: 90 * 1000,      // cooldown before another bulk delete can run in this chat
+  HISTORY_FETCH_MULTIPLIER: 4, // fetch extra history to account for filtered-out rows
+}
+
+const bdCooldowns = new Map() // chatId -> last run timestamp
+const bdRunning = new Set()   // chatId -> currently running (prevent overlap)
+
+function bdSleep(ms) { return new Promise(r => setTimeout(r, ms)) }
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  BULK DELETE COMMAND
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+kord({
+  cmd: "bulkdel|purge",
+  desc: "Bulk delete recent messages in this group",
+  fromMe: wtype,
+  type: "group",
+  gc: true
+}, async (m, text, c, store) => {
+  try {
+    const adm = await isAdmin(m)
+    if (!adm) return await m.send(`_Admins only._`)
+
+    const botAdmin = await isBotAdmin(m)
+    if (!botAdmin) return await m.send(`🛡️ _I need to be a group admin to delete messages from other members._`)
+
+    if (bdRunning.has(m.chat)) return await m.send(`⏳ _A bulk delete is already in progress here. Wait for it to finish._`)
+
+    const lastRun = bdCooldowns.get(m.chat) || 0
+    const sinceLastRun = Date.now() - lastRun
+    if (sinceLastRun < BD.COOLDOWN_MS) {
+      const wait = Math.ceil((BD.COOLDOWN_MS - sinceLastRun) / 1000)
+      return await m.send(`⏱️ _Cooldown active. Wait ${wait}s before running another bulk delete._\n_(this protects the account from WhatsApp's spam-detection)_`)
+    }
+
+    // ── Parse args: [count] [@user optional] ──
+    const target = m.mentionedJid?.[0] || m.quoted?.sender || null
+    const numMatch = text?.match(/\d+/)
+    let count = numMatch ? parseInt(numMatch[0]) : 20
+
+    if (isNaN(count) || count <= 0) count = 20
+    if (count > BD.MAX_PER_CALL) {
+      return await m.send(
+        `⚠️ _Max allowed per call is ${BD.MAX_PER_CALL}._\n` +
+        `_This limit exists to protect your account from WhatsApp's anti-spam systems — deleting too many messages too fast can get an account flagged or temp-banned._\n\n` +
+        `_Run the command again after this batch completes if you need more deleted._`
+      )
+    }
+
+    await m.send(
+      `🗑️ _Starting bulk delete..._\n` +
+      `_Target: ${target ? "@" + target.split("@")[0] + "'s messages" : "recent messages"}_\n` +
+      `_Requested: ${count}_\n` +
+      `_This will take a moment — deletions are throttled to avoid triggering WhatsApp's spam protection._`,
+      target ? { mentions: [target] } : {}
+    )
+
+    bdRunning.add(m.chat)
+
+    // ── Fetch enough history to find `count` matching, deletable messages ──
+    const fetchLimit = count * BD.HISTORY_FETCH_MULTIPLIER + 50
+    const rows = await store.chatHistory(m.chat, fetchLimit)
+
+    if (!rows || !rows.length) {
+      bdRunning.delete(m.chat)
+      return await m.send(`_No message history found for this chat._`)
+    }
+
+    // Parse + filter candidates (most recent first)
+    const candidates = []
+    for (let i = rows.length - 1; i >= 0 && candidates.length < count; i--) {
+      let parsed
+      try { parsed = JSON.parse(rows[i].message) } catch { continue }
+      const key = parsed.key
+      if (!key) continue
+      if (key.remoteJid !== m.chat) continue
+      // Skip the command message itself / reaction-only / already revoked
+      if (parsed.message?.protocolMessage) continue
+      // Filter by target sender if specified
+      const senderJid = key.fromMe ? null : (key.participant || key.remoteJid)
+      if (target) {
+        const senderNum = senderJid?.split("@")[0]
+        if (senderNum !== target.split("@")[0]) continue
+      }
+      candidates.push(key)
+    }
+
+    if (!candidates.length) {
+      bdRunning.delete(m.chat)
+      return await m.send(`_No matching messages found to delete._`)
+    }
+
+    // ── Throttled batch deletion ──
+    let deletedCount = 0
+    let failedCount = 0
+
+    for (let i = 0; i < candidates.length; i += BD.BATCH_SIZE) {
+      const batch = candidates.slice(i, i + BD.BATCH_SIZE)
+      for (const key of batch) {
+        try {
+          await m.client.sendMessage(m.chat, { delete: key })
+          deletedCount++
+        } catch (_) {
+          failedCount++
+        }
+        await bdSleep(BD.ITEM_DELAY_MS)
+      }
+      // Pause between batches — this is the main throttle protecting the account
+      if (i + BD.BATCH_SIZE < candidates.length) {
+        await bdSleep(BD.BATCH_DELAY_MS)
+      }
+    }
+
+    bdRunning.delete(m.chat)
+    bdCooldowns.set(m.chat, Date.now())
+
+    return await m.client.sendMessage(m.chat, {
+      text:
+        `✅ *Bulk Delete Complete*\n\n` +
+        `Deleted:  ${deletedCount}\n` +
+        (failedCount ? `Failed:   ${failedCount} (too old to revoke, or already gone)\n` : ``) +
+        `\n_Note: WhatsApp blocks revoking messages older than a certain window (varies by account/region) — those will show as "failed" above._`
+    })
+
+  } catch (e) {
+    bdRunning.delete(m.chat)
+    console.log("bulkdelete error", e)
+    return await m.sendErr(e)
+  }
+})

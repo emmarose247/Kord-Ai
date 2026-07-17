@@ -6,6 +6,7 @@
 const os = require("os")
 const { prefix, kord, wtype, secondsToHms, config, commands } = require("../core")
 const { version } = require("../package.json")
+const { proto, generateWAMessageFromContent } = require("@whiskeysockets/baileys")
 
 const fmt = (bytes) => {
   const sizes = ["B", "KB", "MB", "GB"]
@@ -21,11 +22,11 @@ const bar = (ratio, w = 10) => {
 
 const getGreeting = () => {
   const h = new Date().getHours()
-  if (h < 5)  return "🌙 Up late?"
-  if (h < 12) return "🌤 Good Morning"
-  if (h < 17) return "☀️ Good Afternoon"
-  if (h < 21) return "🌆 Good Evening"
-  return "🌙 Good Night"
+  if (h < 5)  return "Up late?"
+  if (h < 12) return "Good Morning"
+  if (h < 17) return "Good Afternoon"
+  if (h < 21) return "Good Evening"
+  return "Good Night"
 }
 
 const getRamadanCountdown = () => {
@@ -46,11 +47,11 @@ const getRamadanCountdown = () => {
   if (today >= start && today <= end) {
     const dayIn    = Math.floor((today - start) / msDay) + 1
     const daysLeft = Math.floor((end - today) / msDay)
-    return `🌙 Ramadan Day ${dayIn} • ${daysLeft}d left — Mubarak! 🤲`
+    return `Ramadan Day ${dayIn} - ${daysLeft}d left. Mubarak.`
   }
   if (today < start) {
     const daysUntil = Math.floor((start - today) / msDay)
-    return `🌙 Ramadan in ${daysUntil} day${daysUntil !== 1 ? "s" : ""}!`
+    return `Ramadan in ${daysUntil} day${daysUntil !== 1 ? "s" : ""}.`
   }
   return null
 }
@@ -61,27 +62,91 @@ const getSpecialEvent = () => {
   const d  = now.getDate()
   const ramadan = getRamadanCountdown()
   if (ramadan)              return ramadan
-  if (mo===1  && d===1)    return "🎊 Happy New Year!"
-  if (mo===2  && d===14)   return "💝 Happy Valentine's Day!"
-  if (mo===3  && d===8)    return "💜 Happy Int'l Women's Day!"
-  if (mo===4  && d===1)    return "😂 April Fools! Stay sharp."
-  if (mo===4  && d===22)   return "🌍 Happy Earth Day!"
-  if (mo===5  && d===1)    return "✊ Happy Workers' Day!"
-  if (mo===6  && d===1)    return "👶 Happy Int'l Children's Day!"
-  if (mo===6  && d===16)   return "🇳🇬 Happy Nigerian Children's Day!"
-  if (mo===8  && d===12)   return "🌟 Happy Int'l Youth Day!"
-  if (mo===10 && d===1)    return "🇳🇬 Happy Independence Day!"
-  if (mo===10 && d===31)   return "🎃 Happy Halloween!"
-  if (mo===12 && d===25)   return "🎄 Merry Christmas!"
-  if (mo===12 && d===26)   return "🎁 Happy Boxing Day!"
-  if (mo===12 && d===31)   return "🥂 New Year's Eve!"
+  if (mo===1  && d===1)    return "Happy New Year."
+  if (mo===2  && d===14)   return "Happy Valentine's Day."
+  if (mo===3  && d===8)    return "Happy Int'l Women's Day."
+  if (mo===4  && d===1)    return "April Fools. Stay sharp."
+  if (mo===4  && d===22)   return "Happy Earth Day."
+  if (mo===5  && d===1)    return "Happy Workers' Day."
+  if (mo===6  && d===1)    return "Happy Int'l Children's Day."
+  if (mo===6  && d===16)   return "Happy Nigerian Children's Day."
+  if (mo===8  && d===12)   return "Happy Int'l Youth Day."
+  if (mo===10 && d===1)    return "Happy Independence Day."
+  if (mo===10 && d===31)   return "Happy Halloween."
+  if (mo===12 && d===25)   return "Merry Christmas."
+  if (mo===12 && d===26)   return "Happy Boxing Day."
+  if (mo===12 && d===31)   return "New Year's Eve."
   return null
+}
+
+// Builds the button rows for the native flow message.
+// WhatsApp collapses beyond ~3 visible buttons into a "See all options" sheet.
+const buildMenuButtons = (types) => {
+  const buttons = Object.keys(types).map(cat => ({
+    name: "quick_reply",
+    buttonParamsJson: JSON.stringify({
+      display_text: `${cat.toUpperCase()} (${types[cat].length})`,
+      id: `${prefix}menu ${cat}`,
+    }),
+  }))
+
+  buttons.push({
+    name: "quick_reply",
+    buttonParamsJson: JSON.stringify({
+      display_text: "Refresh",
+      id: `${prefix}menu`,
+    }),
+  })
+
+  return buttons
+}
+
+const buildCategoryButtons = () => {
+  return [
+    {
+      name: "quick_reply",
+      buttonParamsJson: JSON.stringify({
+        display_text: "Back to modules",
+        id: `${prefix}menu`,
+      }),
+    },
+  ]
+}
+
+const sendInteractive = async (m, { title, body, footer, buttons }) => {
+  const msg = generateWAMessageFromContent(
+    m.chat,
+    {
+      viewOnceMessage: {
+        message: {
+          messageContextInfo: {
+            deviceListMetadata: {},
+            deviceListMetadataVersion: 2,
+          },
+          interactiveMessage: proto.Message.InteractiveMessage.create({
+            body: proto.Message.InteractiveMessage.Body.create({ text: body }),
+            footer: proto.Message.InteractiveMessage.Footer.create({ text: footer || "" }),
+            header: proto.Message.InteractiveMessage.Header.create({
+              title,
+              hasMediaAttachment: false,
+            }),
+            nativeFlowMessage: proto.Message.InteractiveMessage.NativeFlowMessage.create({
+              buttons,
+            }),
+          }),
+        },
+      },
+    },
+    { quoted: m.data || undefined }
+  )
+
+  return m.client.relayMessage(m.chat, msg.message, { messageId: msg.key.id })
 }
 
 kord({
   cmd: "menu|help",
   desc: "list of commands",
-  react: "💬",
+  react: "",
   fromMe: wtype,
   type: "help",
 }, async (m) => {
@@ -97,10 +162,6 @@ kord({
 
     const requestedType  = m.text?.toLowerCase().trim() ?? null
     const availableTypes = Object.keys(types).map(t => t.toLowerCase())
-    const ghost          = String.fromCharCode(8206).repeat(4001)
-
-    const LINE = "━".repeat(26)       // outer border fill
-    const DIV  = "  " + "─".repeat(24) // inner section divider
 
     // ── CATEGORY VIEW ─────────────────────────────────────────────
     if (requestedType && availableTypes.includes(requestedType)) {
@@ -109,21 +170,20 @@ kord({
 
       const cmdList = cmds.map((cmd, i) => {
         const c = cmd.replace(/[^a-zA-Z0-9-+]/g, "")
-        return `  ${String(i + 1).padStart(2, "0")}  ▸  ${prefix}${c}`
+        return `${String(i + 1).padStart(2, "0")}  ${prefix}${c}`
       }).join("\n")
 
-      const header = `\`\`\`◤${LINE}◥
-  ⬡  MODULE  :  ${key.toUpperCase()}
-  ⬡  CMDS    :  ${cmds.length} commands
-  ⬡  PREFIX  :  ${prefix}
-◣${LINE}◢\`\`\``
-
-      const body = `\`\`\`${cmdList}
-
-  ❯  .menu  ← back to modules
-◣${LINE}◢\`\`\``
-
-      return m.send(`${header}\n${ghost}\n${body}`)
+      try {
+        return await sendInteractive(m, {
+          title: key.toUpperCase(),
+          body: cmdList,
+          footer: `${cmds.length} commands - prefix ${prefix}`,
+          buttons: buildCategoryButtons(),
+        })
+      } catch (e) {
+        // fallback if interactiveMessage unsupported on this Baileys version
+        return m.send(`*${key.toUpperCase()}*\n\n${cmdList}\n\n_${prefix}menu to go back_`)
+      }
     }
 
     // ── MAIN MENU ─────────────────────────────────────────────────
@@ -137,45 +197,54 @@ kord({
 
     const greeting = getGreeting()
     const special  = getSpecialEvent()
-    const eventLine = special ? `\n_✦ ${special}_` : ""
-
-    const pad = (s, n = 10) => s.padEnd(n)
+    const eventLine = special ? `\n${special}` : ""
 
     let platform = "unknown"
     try { platform = m.client.platform() } catch {}
 
-    const catLines = Object.keys(types).map(cat => {
-      const count = String(types[cat].length).padStart(2)
-      return `  ⬡  ${cat.toUpperCase().padEnd(12)} [${count}]`
-    }).join("\n")
-
-    const menu = [
-      `\`\`\`◤${LINE}◥`,
-      `  ⊸ ${greeting},  ${m.pushName}`,
-      `◣${LINE}◢`,
+    const body = [
+      `${greeting}, ${m.pushName}`,
       ``,
-      `  ${pad("OWNER")}  ${config().OWNER_NAME}`,
-      `  ${pad("UPTIME")}  ${uptime}`,
-      `  ${pad("MEMORY")}  ${bar(usedMem / totalMem)} ${memPct}%`,
-      `  ${pad("CPU")}  ${bar(cpuLoad)} ${cpuPct}%`,
-      `  ${pad("VERSION")}  v${version}`,
-      `  ${pad("PLATFORM")}  ${platform}`,
-      `  ${pad("CMDS")}  ${commands.length} loaded`,
-      DIV,
-      `  ⬡ MODULES`,
-      DIV,
-      catLines,
-      DIV,
-      `  ❯  .menu [module name]`,
-      `◣${LINE}◢\`\`\``,
-    ].join("\n") + eventLine
+      `Owner    : ${config().OWNER_NAME}`,
+      `Uptime   : ${uptime}`,
+      `Memory   : ${bar(usedMem / totalMem)} ${memPct}%`,
+      `CPU      : ${bar(cpuLoad)} ${cpuPct}%`,
+      `Version  : v${version}`,
+      `Platform : ${platform}`,
+      `Commands : ${commands.length} loaded`,
+      eventLine,
+    ].join("\n")
 
     try {
-      if (config().MENU_IMAGE)
-        return m.send(config().MENU_IMAGE, { caption: menu }, "image")
-    } catch {}
+      return await sendInteractive(m, {
+        title: "MENU",
+        body,
+        footer: `Tap a module to view its commands - prefix ${prefix}`,
+        buttons: buildMenuButtons(types),
+      })
+    } catch (e) {
+      console.log("interactive menu failed, falling back to text", e)
+      // fallback to your original text menu if nativeFlowMessage isn't supported
+      const LINE = "-".repeat(26)
+      const catLines = Object.keys(types).map(cat => {
+        const count = String(types[cat].length).padStart(2)
+        return `  ${cat.toUpperCase().padEnd(12)} [${count}]`
+      }).join("\n")
 
-    return m.send(menu)
+      const menu = [
+        `\`\`\`${LINE}`,
+        body,
+        LINE,
+        `MODULES`,
+        LINE,
+        catLines,
+        LINE,
+        `.menu [module name]`,
+        `${LINE}\`\`\``,
+      ].join("\n")
+
+      return m.send(menu)
+    }
 
   } catch (e) {
     console.log("menu error", e)

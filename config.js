@@ -24,6 +24,7 @@ module.exports = {
     OWNER_NAME: process.env.OWNER_NAME || "Mirage",
     BOT_NAME: process.env.BOT_NAME || "Kord",
     RENDER_API_KEY: process.env.RENDER_API_KEY,
+    GROQ_API_KEY: process.env.GROQ_API_KEY || "",
     ANTIDELETE: process.env.ANTIDELETE || "on",
     ANTIDELETE_INCHAT: process.env.ANTIDELETE_INCHAT || "off",
     ANTI_EDIT: process.env.ANTI_EDIT || "off",

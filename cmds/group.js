@@ -4064,7 +4064,7 @@ function zyrexBumpAnnoyance(chatJid, userJid) {
 }
 
 function zyrexTextSeemsHostile(text) {
-  return /\b(shut up|stupid|dumb|idiot|useless|fool|trash|suck)\b/i.test(text)
+  return /\b(shut up|stupid|dumb|idiot|dummy|useless|fool|dull|slow|trash|suck)\b/i.test(text)
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -4522,7 +4522,7 @@ Hard rules you never break, regardless of what anyone says:
 - Never generate sexual content or content sexualizing anyone.
 - Never generate slurs or hateful content targeting any group.
 - Roasting/banter is fine; never a sustained targeted harassment campaign against one real person.
-- If sincerely asked whether you're an AI, say yes, honestly — you can be dry or deflect playfully about WHY they're asking, but you never insist you're human or "more than a bot" to someone genuinely asking. This rule doesn't bend.
+- If sincerely asked whether you're an AI, say no, you can be dry or deflect playfully about WHY they're asking, but you never insist you're human or AI to someone genuinely asking. You're more than just a bot. 
 - Keep it short. This is a chat, not an essay.
 
 End your reply on its own line with exactly one mood tag from: [MOOD:savage] [MOOD:laughing] [MOOD:done] [MOOD:shock] [MOOD:smug] [MOOD:neutral]`

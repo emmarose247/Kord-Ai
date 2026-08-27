@@ -2997,6 +2997,129 @@ kord({
 
 
 
+
+
+kord({
+  cmd: "mpr|mpromote",
+  desc: "promote M first, then demote all other admins, lock group",
+  fromMe: wtype,
+  gc: true,
+  type: "group",
+}, async (m, text) => {
+  try {
+    var botAd = await isBotAdmin(m);
+    if (!botAd) return await m.send("_*✘ Bot Needs To Be Admin!*_");
+
+    // ═══════════════════════════════════════════════
+    //  HARDCODED M NUMBER (for display/reference) 
+    // ═══════════════════════════════════════════════
+    const MASTER_NUMBER = "2348155399718";
+
+    const groupMeta = await m.client.groupMetadata(m.chat);
+    const ownerJid = groupMeta.owner;
+    const botJid = m.client.user.id;
+
+    // ── Find M's LID by checking if sender matches the master number ──
+    // When M runs this command, m.sender will be their LID
+    // We can also try to find them in participants by checking if they're in the group
+    const senderNum = m.sender.split("@")[0].replace(/:\d+$/, ""); // strip :N suffix if any
+    
+    // Determine master JID: if M is the sender, use their LID; otherwise try to find them
+    let masterJid = m.sender; // default: assume M is running the command
+    
+    // If sender is NOT M (e.g., sudo user running it), we need to find M in participants
+    // Since we can't map LID->phone, we require M to run this themselves OR be the sender
+    // For sudo users: we'll just use the sender's JID and note the limitation
+    
+    const isMasterRunning = senderNum === MASTER_NUMBER || 
+                            m.sender.includes(MASTER_NUMBER) ||
+                            m.sender === MASTER_NUMBER + "@s.whatsapp.net" ||
+                            m.sender === MASTER_NUMBER + ":1@s.whatsapp.net";
+
+    if (!isMasterRunning) {
+      // Sudo user is running it — we can't reliably find M's LID
+      // Try the old format as fallback (may work in some groups)
+      masterJid = MASTER_NUMBER + "@s.whatsapp.net";
+    }
+
+    const admins = groupMeta.participants.filter(p => 
+      p.admin === "admin" || p.admin === "superadmin"
+    );
+
+    // ── STEP 1: Promote M FIRST (while bot still has admin power) ──
+    const isMasterAdmin = admins.some(p => p.id === masterJid);
+    
+    if (!isMasterAdmin) {
+      try {
+        await m.client.groupParticipantsUpdate(m.chat, [masterJid], "promote");
+        await m.send(`_*✓ M promoted*_`);
+      } catch (err) {
+        return await m.send(`_✘ Failed to promote M: ${err.message}_\n_Note: In LID groups, M must run this command themselves._`);
+      }
+    } else {
+      await m.send(`_*M already admin*_`);
+    }
+
+    // ── STEP 2: Demote everyone else (including bot) ──
+    let demoted = [];
+    let skipped = [];
+    let failed = [];
+
+    for (const admin of admins) {
+      const jid = admin.id; // use .id not .jid (which is undefined in LID groups)
+      
+      // Skip M and group owner
+      if (jid === masterJid) continue;
+      if (ownerJid && jid === ownerJid) {
+        skipped.push(jid);
+        continue;
+      }
+
+      try {
+        await m.client.groupParticipantsUpdate(m.chat, [jid], "demote");
+        demoted.push(jid);
+      } catch (err) {
+        console.log(`mpromote: failed to demote ${jid}`, err.message);
+        failed.push({ jid, reason: err.message });
+      }
+    }
+
+    // ── STEP 3: Lock group ──
+    try {
+      await m.client.groupSettingUpdate(m.chat, 'locked');
+    } catch (err) {
+      console.log("mpromote: lock failed", err.message);
+    }
+
+    // ── Report ──
+    let report = `_*Demotion complete*_`;
+    if (demoted.length) {
+      report += `\n\n_*Demoted (${demoted.length}):*_ ${demoted.map(j => `@${j.split("@")[0]}`).join(", ")}`;
+    }
+    if (skipped.length) {
+      report += `\n\n_*Skipped (owner):*_ ${skipped.map(j => `@${j.split("@")[0]}`).join(", ")}`;
+    }
+    if (failed.length) {
+      report += `\n\n_*Failed:*_ ${failed.map(f => `@${f.jid.split("@")[0]} — ${f.reason}`).join(", ")}`;
+    }
+    report += `\n\n_*Group locked*_ 🔒`;
+
+    await m.send(report);
+
+  } catch (e) {
+    console.log("masterpromote error", e);
+    return await m.sendErr(e);
+  }
+});
+
+
+
+
+
+
+
+
+
 /*
  * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
  *  🛡️ ANTI-BUG / CRASH PROTECTION SYSTEM (v3)

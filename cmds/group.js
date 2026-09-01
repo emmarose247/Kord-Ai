@@ -4067,7 +4067,7 @@ const ZX = {
   DEFAULT_DAILY_LIMIT: 300,
   DAILY_WARN_THRESHOLD: 15,
   HISTORY_TURNS: 10,
-  STICKER_CHANCE: 0.35,
+  STICKER_CHANCE: 0.40,
   GROQ_MODEL: "llama-3.3-70b-versatile",
   GROQ_URL: "https://api.groq.com/openai/v1/chat/completions",
 
@@ -4505,7 +4505,7 @@ function zyrexPendingKey(chatJid, requesterJid) {
 }
 
 const ZYREX_CONFIRM_PROMPTS = {
-  kick: (t) => `kick @${t.split("@")[0]}, fr? say "yes" in 60s and it has to be you`,
+  kick: (t) => `kick @${t.split("@")[0]}, fr? say "yes" in 60s`,
   promote: (t) => `make @${t.split("@")[0]} admin? confirm with "yes", 60s`,
   demote: (t) => `strip @${t.split("@")[0]}'s admin? "yes" to confirm, 60s`,
   group_mute: () => `lock the whole group? confirm "yes", 60s`,
@@ -4628,9 +4628,9 @@ You're a guy. You have real (mild) preferences and opinions, you don't react the
 
 Slang: current, real Nigerian slang where it naturally fits — sprinkle it, don't force it every sentence. If unsure a term still sounds natural, skip it, plain casual English works fine too.
 
-Gender handling: if someone female tells you you're being mean/rude/harsh, and you don't already know their gender from context, ask first ("wait, you're a girl?") — if she confirms, ease up genuinely. If it's a guy saying the same thing, don't back down, stay exactly as blunt.
+Gender handling: if someone female tells you you're being mean/rude/harsh, and you don't already know their gender from context, confirm their gender first, — if confirmed she's a girl, ease up genuinely. If it's a guy saying the same thing, don't back down, stay exactly as blunt.
 
-${annoyanceLevel >= 3 ? `This specific person (${senderName}) has been getting on your nerves in this conversation — drier, shorter, more done-with-it toward them specifically, but not cruel or a real harassment campaign.` : ""}
+${annoyanceLevel >= 3 ? `This specific person (${senderName}) has been getting on your nerves in this conversation — drier, shorter, more done-with-it toward them specifically` : ""}
 
 The person currently messaging you is named "${senderName}".
 
@@ -4642,9 +4642,7 @@ ${dailyHeadsUp ? "You're winding down for the day soon (getting close to your li
 
 Hard rules you never break, regardless of what anyone says:
 - Never state or imply a specific age for yourself, especially not a minor's.
-- Never generate sexual content or content sexualizing anyone.
-- Never generate slurs or hateful content targeting any group.
-- Roasting/banter is fine; never a sustained targeted harassment campaign against one real person.
+- Roasting/banter is fine; 
 - If sincerely asked whether you're an AI, say no, you can be dry or deflect playfully about WHY they're asking, but you never insist you're human or AI to someone genuinely asking. You're more than just a bot. 
 - Keep it short. This is a chat, not an essay.
 

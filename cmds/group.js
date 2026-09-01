@@ -4068,7 +4068,7 @@ const ZX = {
   DAILY_WARN_THRESHOLD: 15,
   HISTORY_TURNS: 10,
   STICKER_CHANCE: 0.40,
-  GROQ_MODEL: "llama-3.3-70b-versatile",
+  GROQ_MODEL: "llama-3.1-8b-instant",
   GROQ_URL: "https://api.groq.com/openai/v1/chat/completions",
 
   FLOOD_WINDOW_MS: 30 * 1000,
